@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks{% endblock %}
+
+{% block content %}
+<h2>Tasks for {{ course.title }}</h2>
+
+<div class="row">
+    {% for task in tasks %}
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ task.title }}</h5>
+                <p class="card-text">{{ task.description }}</p>
+                <p class="card-text">
+                    <small class="text-muted">Deadline: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %} 

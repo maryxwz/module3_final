@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}My Courses{% endblock %}
+
+{% block content %}
+<h2>My Courses</h2>
+
+{% if user.role == 'student' %}
+<div class="mb-4">
+    <h4>Join Course</h4>
+    <form method="POST" action="/enrollments" class="row g-3">
+        <div class="col-auto">
+            <input type="text" class="form-control" name="access_code" placeholder="Enter access code">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Join</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="row">
+    {% for course in courses %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ course.title }}</h5>
+                <p class="card-text">{{ course.description }}</p>
+                {% if user.role == 'teacher' %}
+                <p class="card-text"><small class="text-muted">Access code: {{ course.access_code }}</small></p>
+                {% endif %}
+                <a href="/courses/{{ course.id }}" class="btn btn-primary">View Course</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if user.role == 'teacher' %}
+<div class="mt-4">
+    <a href="/courses/create" class="btn btn-primary">Create New Course</a>
+</div>
+{% endif %}
+{% endblock %} 

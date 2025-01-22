@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Welcome, {{ user.username }}!</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">My Learning Space</h5>
+                    <p class="card-text">
+                        {% if user.role == 'teacher' %}
+                            Manage your courses and create new learning materials.
+                        {% else %}
+                            Access your enrolled courses and join new ones.
+                        {% endif %}
+                    </p>
+                    <a href="/courses" class="btn btn-primary">Go to Courses</a>
+                </div>
+            </div>
+        </div>
+        
+        {% if user.role == 'teacher' %}
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Teacher Tools</h5>
+                    <p class="card-text">Create new courses and manage your teaching materials.</p>
+                    <a href="/courses/create" class="btn btn-primary">Create New Course</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
