@@ -53,3 +53,17 @@ async def get_current_user(access_token: Optional[str] = Cookie(None, alias="acc
         raise credentials_exception
         
     return email 
+
+
+async def get_current_user_optional(access_token: str | None = Cookie(None, alias="access_token")):
+    if not access_token:
+        return None
+    try:
+        token = access_token.replace("Bearer ", "") if access_token.startswith("Bearer ") else access_token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+        return email
+    except JWTError:
+        return None 

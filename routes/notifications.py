@@ -1,8 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict
-import json
 
-router = APIRouter()
+router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 class ConnectionManager:

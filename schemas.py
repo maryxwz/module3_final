@@ -1,12 +1,14 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class UserBase(BaseModel):
-    email: EmailStr
+    email: str
     username: str
-    role: str
+
+    class Config:
+        from_attributes = True
 
 
 class UserCreate(UserBase):
@@ -17,23 +19,20 @@ class UserOut(UserBase):
     id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
 
-
-class CourseBase(BaseModel):
+class SubjectBase(BaseModel):
     title: str
     description: str
 
 
-class CourseCreate(CourseBase):
+class SubjectCreate(SubjectBase):
     pass
 
 
-class CourseOut(CourseBase):
+class SubjectOut(SubjectBase):
     id: int
-    access_code: str
     teacher_id: int
+    access_code: str
 
     class Config:
         from_attributes = True
@@ -44,31 +43,42 @@ class TaskBase(BaseModel):
     description: str
     deadline: datetime
 
+    class Config:
+        from_attributes = True
+
 
 class TaskCreate(TaskBase):
-    course_id: int
+    subject_id: int
 
 
 class TaskOut(TaskBase):
     id: int
-    course_id: int
+    subject_id: int
+    comments: List['CommentOut'] = []
 
     class Config:
         from_attributes = True
 
 
-class CommentBase(BaseModel):
+class CommentCreate(BaseModel):
     content: str
-
-
-class CommentCreate(CommentBase):
     task_id: int
 
 
-class CommentOut(CommentBase):
+class CommentOut(CommentCreate):
     id: int
-    created_at: datetime
-    user_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class EnrollmentCreate(BaseModel):
+    subject_id: int
+
+
+class EnrollmentOut(EnrollmentCreate):
+    id: int
+    student_id: int
 
     class Config:
         from_attributes = True

@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
 Base = declarative_base()
@@ -13,25 +12,24 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     username = Column(String)
     hashed_password = Column(String)
-    role = Column(String)  # "teacher" или "student"
-    is_active = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
     
-    courses = relationship("Course", back_populates="teacher")
+    subjects_teaching = relationship("Subject", back_populates="teacher")
     enrollments = relationship("Enrollment", back_populates="student")
 
 
-class Course(Base):
-    __tablename__ = "courses"
+class Subject(Base):
+    __tablename__ = "subjects"
     
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
     description = Column(Text)
-    access_code = Column(String, unique=True)
     teacher_id = Column(Integer, ForeignKey("users.id"))
+    access_code = Column(String, unique=True)
     
-    teacher = relationship("User", back_populates="courses")
-    tasks = relationship("Task", back_populates="course")
-    enrollments = relationship("Enrollment", back_populates="course")
+    teacher = relationship("User", back_populates="subjects_teaching")
+    enrollments = relationship("Enrollment", back_populates="subject")
+    tasks = relationship("Task", back_populates="subject")
 
 
 class Task(Base):
@@ -41,9 +39,9 @@ class Task(Base):
     title = Column(String)
     description = Column(Text)
     deadline = Column(DateTime)
-    course_id = Column(Integer, ForeignKey("courses.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
     
-    course = relationship("Course", back_populates="tasks")
+    subject = relationship("Subject", back_populates="tasks")
     comments = relationship("Comment", back_populates="task")
 
 
@@ -65,7 +63,8 @@ class Enrollment(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id"))
-    course_id = Column(Integer, ForeignKey("courses.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     student = relationship("User", back_populates="enrollments")
-    course = relationship("Course", back_populates="enrollments")
+    subject = relationship("Subject", back_populates="enrollments")

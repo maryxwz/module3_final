@@ -1,35 +1,67 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Response
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import timedelta
+from sqlalchemy import select
 import models, schemas, security
 from database import get_db
+from security import get_current_user_optional
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
 async def authenticate_user(email: str, password: str, db: AsyncSession):
-    query = select(models.User).where(models.User.email == email)
-    result = await db.execute(query)
+    result = await db.execute(select(models.User).filter(models.User.email == email))
     user = result.scalar_one_or_none()
-    
     if not user or not security.verify_password(password, user.hashed_password):
         return None
     return user
 
 
+@router.get("/")
+async def index(
+    request: Request, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: str = Depends(get_current_user_optional)
+):
+    user = None
+    subjects = []
+    
+    if current_user:
+        result = await db.execute(select(models.User).filter(models.User.email == current_user))
+        user = result.scalar_one_or_none()
+        
+        if user: 
+            result = await db.execute(
+                select(models.Subject).where(
+                    (models.Subject.teacher_id == user.id) |
+                    models.Subject.id.in_(
+                        select(models.Enrollment.subject_id)
+                        .where(models.Enrollment.student_id == user.id)
+                    )
+                )
+            )
+            subjects = result.scalars().all()
+    
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "user": user,
+            "subjects": subjects
+        }
+    )
+
+
 @router.get("/login")
 async def login_page(request: Request):
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 @router.get("/register")
 async def register_page(request: Request):
-    return templates.TemplateResponse("auth/register.html", {"request": request})
+    return templates.TemplateResponse("register.html", {"request": request})
 
 
 @router.post("/register")
@@ -37,14 +69,10 @@ async def register(
     email: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
-    role: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(models.User).where(models.User.email == email)
-    result = await db.execute(query)
-    db_user = result.scalar_one_or_none()
-    
-    if db_user:
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = security.get_password_hash(password)
@@ -52,37 +80,30 @@ async def register(
         email=email,
         username=username,
         hashed_password=hashed_password,
-        role=role
+        is_active=True
     )
     db.add(db_user)
     await db.commit()
-    await db.refresh(db_user)
 
-    return RedirectResponse(url="/auth/login", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
 
 
-@router.post("/token")
+@router.post("/login")
 async def login(
-    response: Response,
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    email: str = Form(...),
+    password: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    user = await authenticate_user(form_data.username, form_data.password, db)
+    user = await authenticate_user(email, password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Incorrect username or password"
         )
     
-    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-
-    redirect = RedirectResponse(url="/index", status_code=303)
-
-    redirect.set_cookie(
+    access_token = security.create_access_token(data={"sub": email})
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
         httponly=True,
@@ -90,5 +111,11 @@ async def login(
         expires=1800,
         samesite="lax"
     )
-    
-    return redirect 
+    return response
+
+
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("access_token")
+    return response 
