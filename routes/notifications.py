@@ -1,7 +1,22 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List, Dict
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Dict, List
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+class MessageText(BaseModel):
+    id: int
+    time_sent: str = datetime.now().strftime("%H:%M")
+
+
+class Message(BaseModel):
+    id: int
+    person_from: str
+    person_to: str
+    text: MessageText
+    date_sent: datetime = datetime.now()
 
 
 class ConnectionManager:
@@ -15,17 +30,15 @@ class ConnectionManager:
         self.active_connections[user_id].append(websocket)
 
     def disconnect(self, websocket: WebSocket, user_id: str):
-        self.active_connections[user_id].remove(websocket)
-        if not self.active_connections[user_id]:
-            del self.active_connections[user_id]
-
-    async def send_notification(self, user_id: str, message: str):
         if user_id in self.active_connections:
-            for connection in self.active_connections[user_id]:
-                await connection.send_json({
-                    "type": "notification",
-                    "message": message
-                })
+            self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_message(self, message: Message):
+        if message.person_to in self.active_connections:
+            for connection in self.active_connections[message.person_to]:
+                await connection.send_json(message.dict())
 
 
 manager = ConnectionManager()
@@ -36,10 +49,19 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
     await manager.connect(websocket, user_id)
     try:
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id)
 
 
-async def send_notification(user_id: str, message: str):
-    await manager.send_notification(user_id, message) 
+async def send_notification(user_id: str, from_user: str, message: str):
+    msg = Message(
+        id=len(manager.active_connections),
+        person_from=from_user,
+        person_to=user_id,
+        text=MessageText(
+            id=len(manager.active_connections),
+            time_sent=datetime.now().strftime("%H:%M")
+        )
+    )
+    await manager.send_message(msg) 
