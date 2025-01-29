@@ -5,7 +5,7 @@ from routes import auth, subjects, tasks, enrollments, notifications
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
+#comment1
 
 @app.on_event("startup")
 async def startup():
