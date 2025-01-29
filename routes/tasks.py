@@ -71,4 +71,4 @@ async def get_subject_tasks(
     
     result = await db.execute(select(models.Task).filter(models.Task.subject_id == subject_id))
     tasks = result.scalars().all()
-    return tasks 
+    return tasks
