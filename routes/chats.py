@@ -108,18 +108,32 @@ async def get_users(db: AsyncSession = Depends(get_db)):
 async def create_chat(user_ids: List[int], is_group: bool = False, db: AsyncSession = Depends(get_db)):
     if not user_ids or len(user_ids) < 2:
         raise HTTPException(status_code=400, detail="At least two users required")
-    
+
+    user_ids_sorted = sorted(user_ids)
+
+    existing_chats = await db.execute(
+        select(Chat)
+        .join(ChatParticipant)
+        .group_by(Chat.id)
+    )
+    existing_chats = existing_chats.scalars().all()
+    print(existing_chats)
+
+    for chat in existing_chats:
+        participant_ids = [participant.user_id for participant in chat.participants]
+        if sorted(participant_ids) == user_ids_sorted:
+            raise HTTPException(status_code=400, detail="A chat with the same participants already exists")
+
     new_chat = Chat(is_group=is_group)
-    db.add(new_chat)
+    await db.add(new_chat)
     await db.commit()  
-    await db.refresh(new_chat)  
+    await db.refresh(new_chat)
 
     for user_id in user_ids:
         db.add(ChatParticipant(chat_id=new_chat.id, user_id=user_id))
 
     await db.commit()  
     return {"chat_id": new_chat.id, "is_group": is_group}
-
 
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
