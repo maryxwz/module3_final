@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Домашні завдання{% endblock %}
+
+{% block content %}
+    <h2>Домашні завдання</h2>
+    {% if tasks %}
+        <ul class="list-group">
+            {% for task in tasks %}
+                <li class="list-group-item">
+                    <strong>{{ task.title }}</strong><br>
+                    <p>{{ task.description }}</p>
+                    <small>Deadline: {{ task.deadline }}</small>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Немає завдань з майбутніми дедлайнами.</p>
+    {% endif %}
+{% endblock %}
