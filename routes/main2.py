@@ -1,11 +1,12 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, APIRouter
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 import shutil
 import os
 import uvicorn
 
-from main import app
+
+router = APIRouter()
 
 UPLOAD_DIRECTORY = "./uploaded_files"
 
@@ -26,7 +27,7 @@ class Task:
 tasks_db = {}
 
 
-@app.post("/upload")
+@router.post("/upload")
 async def upload_files(
         task_id: int = Form(...),
         files: List[UploadFile] = File(...),
@@ -48,7 +49,7 @@ async def upload_files(
     return JSONResponse(content=response_data)
 
 
-@app.put("/update_task/{task_id}")
+@router.put("/update_task/{task_id}")
 async def update_task(task_id: int, files: List[UploadFile] = File(None), text: str = Form(None)):
     if task_id not in tasks_db:
         return JSONResponse(content={"error": "Task not found"}, status_code=404)
@@ -77,7 +78,7 @@ async def update_task(task_id: int, files: List[UploadFile] = File(None), text: 
     return JSONResponse(content=response_data)
 
 
-@app.put("/grade_task/{task_id}")
+@router.put("/grade_task/{task_id}")
 async def grade_task(task_id: int, grade: int = Form(...)):
     if task_id not in tasks_db:
         return JSONResponse(content={"error": "Task not found"}, status_code=404)
