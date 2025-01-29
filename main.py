@@ -17,3 +17,4 @@ app.include_router(tasks.router)
 app.include_router(enrollments.router)
 app.include_router(notifications.router)
 app.include_router(chats.router)
+

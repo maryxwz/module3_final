@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPExce
 from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from models import User, Chat, ChatParticipant, Message
+from models import User
 from database import get_db
 from pydantic import BaseModel
 import datetime
@@ -42,8 +42,6 @@ class ConnectionManager:
 
 router = APIRouter()
 manager = ConnectionManager()
-
-
 
 
 @router.websocket("/ws/chat/{chat_id}/{user_id}")
