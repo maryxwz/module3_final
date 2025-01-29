@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if user %}
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Welcome, {{ user.username }}!</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCourseModal">
+                <i class="fas fa-plus"></i> Create Course
+            </button>
+        </div>
+
+        <div class="row g-4">
+            {% for subject in subjects %}
+            <div class="col-md-4 mb-4">
+                <div class="card home-card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">{{ subject.title }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ subject.description }}</p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="/subjects/{{ subject.id }}" class="btn btn-outline-primary">Open Course</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="modal fade" id="createCourseModal">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create Course</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="/subjects/create">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="title">Title</label>
+                                <input type="text" class="form-control" id="title" name="title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description">Description</label>
+                                <textarea class="form-control" id="description" name="description" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">Create</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center mt-5">
+            <h1>Welcome!</h1>
+            <div class="mt-4">
+                <a href="/login" class="btn btn-primary me-2">Login</a>
+                <a href="/register" class="btn btn-primary">Register</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,17 +1,45 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+import os
+from dotenv import load_dotenv
+from models import Base
+
+load_dotenv()
+
+base_url = os.getenv("DATABASE_URL").split("?")[0]
+DATABASE_URL = base_url.replace("postgresql://", "postgresql+asyncpg://")
+
+engine = create_async_engine(
+    DATABASE_URL,
+    connect_args={
+        "ssl": True,
+        "server_settings": {
+            "sslmode": "require"
+        }
+    }
+)
+
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 
-DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
+async def recreate_database():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
