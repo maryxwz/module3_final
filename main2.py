@@ -5,7 +5,7 @@ import shutil
 import os
 import uvicorn
 
-app = FastAPI()
+from main import app
 
 UPLOAD_DIRECTORY = "./uploaded_files"
 
@@ -99,5 +99,4 @@ async def grade_task(task_id: int, grade: int = Form(...)):
     return JSONResponse(content=response_data)
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
