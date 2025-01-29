@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика оценок</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            margin: auto;
+        }
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Статистика оценок</h2>
+    <label for="courseSelect">Выберите курс:</label>
+    <select id="courseSelect"></select>
+
+    <h3>Оценки</h3>
+    <table id="gradesTable">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Оценка</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h3>График успеваемости</h3>
+    <div class="chart-container">
+        <canvas id="gradesChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const userCourses = {
+        "Математика": [
+            { date: "2024-01-10", grade: 5 },
+            { date: "2024-01-17", grade: 4 },
+            { date: "2024-01-24", grade: 5 },
+            { date: "2024-02-01", grade: 3 }
+        ],
+        "Физика": [
+            { date: "2024-01-12", grade: 4 },
+            { date: "2024-01-19", grade: 4 },
+            { date: "2024-01-26", grade: 5 },
+            { date: "2024-02-02", grade: 5 }
+        ]
+    };
+
+    const courseSelect = document.getElementById("courseSelect");
+    const gradesTableBody = document.querySelector("#gradesTable tbody");
+    let chart;
+
+    Object.keys(userCourses).forEach(course => {
+        const option = document.createElement("option");
+        option.value = course;
+        option.textContent = course;
+        courseSelect.appendChild(option);
+    });
+
+    function updateTable(course) {
+        gradesTableBody.innerHTML = "";
+        userCourses[course].forEach(entry => {
+            const row = document.createElement("tr");
+            row.innerHTML = `<td>${entry.date}</td><td>${entry.grade}</td>`;
+            gradesTableBody.appendChild(row);
+        });
+    }
+
+    function updateChart(course) {
+        const ctx = document.getElementById("gradesChart").getContext("2d");
+        const labels = userCourses[course].map(entry => entry.date);
+        const data = userCourses[course].map(entry => entry.grade);
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Оценки",
+                    data: data,
+                    borderColor: "#007bff",
+                    backgroundColor: "rgba(0, 123, 255, 0.2)",
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointBackgroundColor: "#007bff"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 1, max: 5 }
+                }
+            }
+        });
+    }
+
+    courseSelect.addEventListener("change", () => {
+        const selectedCourse = courseSelect.value;
+        updateTable(selectedCourse);
+        updateChart(selectedCourse);
+    });
+
+    courseSelect.value = Object.keys(userCourses)[0];
+    updateTable(courseSelect.value);
+    updateChart(courseSelect.value);
+</script>
+
+</body>
+</html>
