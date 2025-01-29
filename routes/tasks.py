@@ -78,7 +78,6 @@ async def get_subject_tasks(
 
     result = await db.execute(select(models.Task).filter(models.Task.subject_id == subject_id))
     tasks = result.scalars().all()
-
     return tasks
 
 
@@ -132,11 +131,18 @@ async def update_task(task_id: int,
                       description: str = Form(...),
                       deadline: str = Form(...),
                       db: AsyncSession = Depends(get_db),
+                      current_user: models.User = Depends(get_current_user_for_id)
                       ):
     result = await db.execute(
         select(models.Task).options(selectinload(models.Task.subject)).filter(models.Task.id == task_id)
     )
     task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.subject.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the teacher can edit tasks")
 
     task.title = title
     task.description = description
