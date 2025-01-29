@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from sqlalchemy import select
 import models, schemas
 from database import get_db
@@ -113,3 +114,54 @@ async def create_subject(
     await db.refresh(db_subject)
     print(f"Created course with id: {db_subject.id}") 
     return RedirectResponse(url="/", status_code=303) 
+
+
+@router.get("/{subject_id}/participants")
+async def get_subject_participants(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    check_user_in_course = await db.execute(
+        select(models.Enrollment).filter(
+            models.Enrollment.student.has(email=current_user), 
+            models.Enrollment.subject_id == subject_id
+        )
+    )
+    if not check_user_in_course.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    subject = await db.execute(
+        select(models.Subject)
+        .options(
+            joinedload(models.Subject.teacher),
+            joinedload(models.Subject.enrollments).joinedload(models.Enrollment.student)
+        )
+        .filter(models.Subject.id == subject_id)
+    )
+
+    subject_data = subject.scalar_one_or_none()
+    if not subject_data:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    participants = {
+        "teacher": {
+            "id": subject_data.teacher.id,
+            "username": subject_data.teacher.username,
+            "email": subject_data.teacher.email
+        },
+        "students": [
+            {
+                "id": enrollment.student.id,
+                "username": enrollment.student.username,
+                "email": enrollment.student.email
+            }
+            for enrollment in subject_data.enrollments
+        ]
+    }
+
+    return participants
