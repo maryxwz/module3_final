@@ -45,4 +45,6 @@ class NotificationManager {
 document.addEventListener('DOMContentLoaded', () => {
     const notificationManager = new NotificationManager();
     notificationManager.connect();
-}); 
+});
+
+
