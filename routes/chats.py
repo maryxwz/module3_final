@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from models import Chat, ChatParticipant, Message
 from sqlalchemy import select, desc
 from models import User
 from database import get_db
