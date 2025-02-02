@@ -121,14 +121,14 @@ async def get_subject_participants(
     subject_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    # current_user: str = Depends(get_current_user)
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # if not current_user:
+    #     raise HTTPException(status_code=401, detail="Unauthorized")
 
     check_user_in_course = await db.execute(
         select(models.Enrollment).filter(
-            models.Enrollment.student.has(email=current_user), 
+            # models.Enrollment.student.has(email=current_user), 
             models.Enrollment.subject_id == subject_id
         )
     )

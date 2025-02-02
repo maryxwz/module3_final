@@ -1,13 +1,15 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Chat, ChatParticipant, Message
 from sqlalchemy import select, desc
+from sqlalchemy.orm import selectinload
 from models import User
 from database import get_db
 from pydantic import BaseModel
 import datetime
 import asyncio
+from fastapi.templating import Jinja2Templates
 
 
 class ConnectionManager:
@@ -43,7 +45,11 @@ class ConnectionManager:
 
 router = APIRouter()
 manager = ConnectionManager()
+templates = Jinja2Templates(directory="templates")
 
+@router.get("/my_chats")
+async def login_page(request: Request):
+    return templates.TemplateResponse("chats.html", {"request": request})
 
 @router.websocket("/ws/chat/{chat_id}/{user_id}")
 async def websocket_chat(chat_id: int, user_id: int, websocket: WebSocket, db: AsyncSession = Depends(get_db)):
@@ -104,36 +110,54 @@ async def get_users(db: AsyncSession = Depends(get_db)):
     return users
 
 
+@router.get("/chats/")
+async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        result = await db.execute(
+            select(Chat.id, Chat.is_group, Chat.created_at)
+            .join(ChatParticipant, Chat.id == ChatParticipant.chat_id)
+            .filter(ChatParticipant.user_id == user_id)
+        )
+        chats = result.all()
+
+        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at} for chat in chats]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching chats: {str(e)}")
+
+
 @router.post("/chats/")
-async def create_chat(user_ids: List[int], is_group: bool = False, db: AsyncSession = Depends(get_db)):
-    if not user_ids or len(user_ids) < 2:
+async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
+    if len(user_ids) < 2:
         raise HTTPException(status_code=400, detail="At least two users required")
-
+    
     user_ids_sorted = sorted(user_ids)
-
+    
+    # Отримання існуючих чатів разом із учасниками
     existing_chats = await db.execute(
-        select(Chat)
-        .join(ChatParticipant)
-        .group_by(Chat.id)
+        select(Chat).options(selectinload(Chat.participants))
     )
     existing_chats = existing_chats.scalars().all()
-    print(existing_chats)
-
+    
     for chat in existing_chats:
-        participant_ids = [participant.user_id for participant in chat.participants]
-        if sorted(participant_ids) == user_ids_sorted:
+        participant_ids = sorted([participant.user_id for participant in chat.participants])
+        if participant_ids == user_ids_sorted:
             raise HTTPException(status_code=400, detail="A chat with the same participants already exists")
-
-    new_chat = Chat(is_group=is_group)
-    await db.add(new_chat)
-    await db.commit()  
+    
+    # Створення нового чату
+    new_chat = Chat(is_group=len(user_ids) > 2)
+    db.add(new_chat)
+    await db.commit()
     await db.refresh(new_chat)
+    
+    # Додавання учасників до чату
+    chat_participants = [ChatParticipant(chat_id=new_chat.id, user_id=user_id) for user_id in user_ids]
+    db.add_all(chat_participants)
+    await db.commit()
+    
+    return {"chat_id": new_chat.id, "is_group": new_chat.is_group}
 
-    for user_id in user_ids:
-        db.add(ChatParticipant(chat_id=new_chat.id, user_id=user_id))
 
-    await db.commit()  
-    return {"chat_id": new_chat.id, "is_group": is_group}
 
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
