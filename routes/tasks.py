@@ -1,15 +1,13 @@
 from datetime import datetime
 from typing import List
-import os
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Form, Request, UploadFile, File
-from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Form, Request
+from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
-import shutil
 
 import models
 import schemas
@@ -18,10 +16,6 @@ from security import get_current_user, get_current_user_for_id
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 templates = Jinja2Templates(directory="templates")
-
-UPLOAD_DIR = Path("uploads")
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
 
 
 @router.post("/create", response_model=schemas.TaskOut)
@@ -183,125 +177,3 @@ async def subject_delete(
     await db.commit()
 
     return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
-
-
-@router.get("/task/{task_id}")
-async def task_detail(
-    request: Request,
-    task_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user_for_id)
-):
-    stmt = (
-        select(models.Task)
-        .options(
-            selectinload(models.Task.subject),
-            selectinload(models.Task.uploads).selectinload(models.TaskUpload.student)
-        )
-        .where(models.Task.id == task_id)
-    )
-    
-    result = await db.execute(stmt)
-    task = result.scalar_one_or_none()
-    
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    if task.subject.teacher_id != current_user.id:
-        enrollment_stmt = select(models.Enrollment).where(
-            models.Enrollment.subject_id == task.subject_id,
-            models.Enrollment.student_id == current_user.id
-        )
-        result = await db.execute(enrollment_stmt)
-        if not result.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="Access denied")
-
-    upload = None
-    if current_user.id != task.subject.teacher_id:
-        upload_stmt = select(models.TaskUpload).where(
-            models.TaskUpload.task_id == task_id,
-            models.TaskUpload.student_id == current_user.id
-        )
-        result = await db.execute(upload_stmt)
-        upload = result.scalar_one_or_none()
-
-    status = None
-    if upload:
-        if upload.uploaded_at <= task.deadline:
-            status = "uploaded"
-        else:
-            status = "late"
-    elif datetime.utcnow() > task.deadline:
-        status = "overdue"
-    else:
-        status = "assigned"
-
-    return templates.TemplateResponse(
-        "task_detail.html",
-        {
-            "request": request,
-            "task": task,
-            "user": current_user,
-            "upload": upload,
-            "status": status
-        }
-    )
-
-
-@router.post("/task/{task_id}/upload")
-async def upload_task(
-    task_id: int,
-    content: str = Form(None),
-    files: List[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user_for_id)
-):
-    result = await db.execute(select(models.Task).filter(models.Task.id == task_id))
-    task = result.scalar_one_or_none()
-    
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    result = await db.execute(
-        select(models.TaskUpload)
-        .filter(
-            models.TaskUpload.task_id == task_id,
-            models.TaskUpload.student_id == current_user.id
-        )
-    )
-    upload = result.scalar_one_or_none()
-
-    saved_files = []
-    if files:
-        for file in files:
-            file_path = f"{task_id}_{current_user.id}_{file.filename}"
-            with open(UPLOAD_DIR / file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            saved_files.append(file_path)
-
-    status = "uploaded"
-    if task.deadline < datetime.utcnow():
-        status = "late"
-    
-    if upload:
-        upload.content = content
-        upload.files = saved_files if files else upload.files
-        upload.updated_at = datetime.utcnow()
-        upload.status = status
-    else:
-        upload = models.TaskUpload(
-            task_id=task_id,
-            student_id=current_user.id,
-            content=content,
-            files=saved_files,
-            status=status
-        )
-        db.add(upload)
-    
-    await db.commit()
-    return RedirectResponse(url=f"/tasks/task/{task_id}", status_code=303)
-
-
-@router.get("/uploads/{file_path:path}")
-async def get_upload(file_path: str):
-    return FileResponse(UPLOAD_DIR / file_path)
