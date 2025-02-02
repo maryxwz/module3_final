@@ -4,10 +4,11 @@ from sqlalchemy import select
 import models
 from database import get_db
 from routes.tasks import templates
-from security import get_current_user
+from security import get_current_user, get_current_user_for_id
 from fastapi.responses import RedirectResponse
 from typing import List
 import schemas
+
 
 router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 
@@ -71,3 +72,32 @@ async def search_courses(request: Request, query: str, db: AsyncSession = Depend
         raise HTTPException(status_code=404, detail="No courses found")
 
     return templates.TemplateResponse("search_courses.html", {"request": request, "courses": courses, "query": query})
+
+
+@router.get("/course_settings/{subject_id}", name="settings_for_course")
+async def settings_for_course(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user_for_id),
+):
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalars().first()
+
+    if not subject or subject.teacher_id != current_user.id:
+        return RedirectResponse(url="/", status_code=303)
+
+    return templates.TemplateResponse(
+        "settings_course.html",
+        {"request": request, "subject": subject, "current_user": current_user}
+    )
+
+
+@router.post("/meet_link/{subject_id}")
+async def save_meet_link(subject_id: int, meet_link: str = Form(...), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalars().first()
+
+    subject.meet_link = meet_link
+    await db.commit()
+    return RedirectResponse(url=f"/subjects/{subject_id}", status_code=303)

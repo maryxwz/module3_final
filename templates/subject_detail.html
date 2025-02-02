@@ -26,6 +26,7 @@
     </div>
 
     <h3>Tasks</h3>
+
     <div class="row">
         {% for task in tasks %}
         <div class="col-md-4 mb-4">
@@ -50,6 +51,7 @@
 
     {% if subject.teacher_id == user.id %}
 
+    <a href="{{ url_for('settings_for_course', subject_id=subject.id) }}">Налаштування</a>
     <div class="modal fade" id="createTaskModal">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -81,7 +83,9 @@
         </div>
     </div>
     {% endif %}
-
+    {% if subject.meet_link %}
+    <p>Посилання на Google Meet: <a href="{{ subject.meet_link }}" target="_blank">{{ subject.meet_link }}</a></p>
+{% endif %}
     <script>
     function copyAccessCode() {
         const codeInput = document.getElementById('accessCode');
