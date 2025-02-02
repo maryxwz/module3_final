@@ -84,23 +84,13 @@ async def get_subject_tasks(
 @router.get("/homeworks")
 async def homework_page(request: Request, db: AsyncSession = Depends(get_db),
                         current_user: models.User = Depends(get_current_user_for_id)):
-    stmt = select(models.Enrollment).where(models.Enrollment.student_id == current_user.id)
-    result = await db.execute(stmt)
-    enrollments = result.scalars().all()
-
-    enrolled_subject_ids = [enrollment.subject_id for enrollment in enrollments]
-
-    current_time = datetime.now()
-
-    stmt = select(models.Task).join(models.Subject).where(
-        models.Task.subject_id.in_(enrolled_subject_ids),
-        models.Task.deadline >= current_time
-    ).order_by(models.Task.deadline)
-
-    result = await db.execute(stmt)
+    query = select(models.Task).order_by(models.Task.deadline.asc()).limit(10)
+    result = await db.execute(query)
     tasks = result.scalars().all()
 
-    return templates.TemplateResponse("homeworks.html", {"request": request, "tasks": tasks})
+    return templates.TemplateResponse(
+        "homeworks.html", {"request": request, "tasks": tasks}
+    )
 
 
 @router.get("/edit/{task_id}")
