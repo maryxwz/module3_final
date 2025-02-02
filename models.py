@@ -26,7 +26,7 @@ class Subject(Base):
     description = Column(Text)
     teacher_id = Column(Integer, ForeignKey("users.id"))
     access_code = Column(String, unique=True)
-    
+    meet_link = Column(String, unique=True)
     teacher = relationship("User", back_populates="subjects_teaching")
     enrollments = relationship("Enrollment", back_populates="subject")
     tasks = relationship("Task", back_populates="subject")

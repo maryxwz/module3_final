@@ -84,6 +84,13 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
+migrations
+alembic.ini
+.idea
+.idea/vcs.xml
+.idea/misc.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
 # Editor-based Rest Client
 .idea/httpRequests
 
@@ -129,6 +136,7 @@ fabric.properties
 __pycache__/
 *.py[cod]
 *$py.class
+
 
 # C extensions
 *.so
