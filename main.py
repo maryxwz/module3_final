@@ -1,9 +1,12 @@
+from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
 from routes import auth, subjects, tasks, enrollments, notifications
 
-app = FastAPI()
+app = FastAPI(debug=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -16,14 +19,3 @@ app.include_router(subjects.router)
 app.include_router(tasks.router)
 app.include_router(enrollments.router)
 app.include_router(notifications.router)
-from fastapi import FastAPI, Depends, HTTPException
-from models import Base
-from database import engine
-from routes import subjects
-
-
-app = FastAPI()
-
-Base.metadata.create_all(bind=engine)
-
-app.include_router(subjects.router)
