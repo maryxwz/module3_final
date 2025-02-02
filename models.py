@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, ARRAY
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
@@ -43,6 +43,7 @@ class Task(Base):
     
     subject = relationship("Subject", back_populates="tasks")
     comments = relationship("Comment", back_populates="task")
+    uploads = relationship("TaskUpload", back_populates="task")
 
 
 class Comment(Base):
@@ -68,3 +69,19 @@ class Enrollment(Base):
     
     student = relationship("User", back_populates="enrollments")
     subject = relationship("Subject", back_populates="enrollments")
+
+
+class TaskUpload(Base):
+    __tablename__ = "task_uploads"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    student_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text, nullable=True)
+    files = Column(ARRAY(String), default=list)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status = Column(String, default="uploaded")
+    
+    task = relationship("Task", back_populates="uploads")
+    student = relationship("User")
