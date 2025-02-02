@@ -8,6 +8,7 @@ from routes import auth, subjects, tasks, enrollments, notifications
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.on_event("startup")
