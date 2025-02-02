@@ -25,4 +25,31 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+
+<!-- Notification message -->
+<div id="notification" class="alert alert-success" role="alert" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 80%; text-align: center;">
+    Subject successfully created!
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Show notification
+    function showNotification(message) {
+        const notification = document.getElementById("notification");
+        notification.textContent = message;
+        notification.style.display = "block";
+
+        // Hide the notification after 5 seconds
+        setTimeout(function() {
+            notification.style.display = "none";
+        }, 5000);
+    }
+
+    // Example of showing notification when page loads (you can modify this based on your logic)
+    window.onload = function() {
+        showNotification("Subject successfully created!");
+    }
+</script>
+{% endblock %}

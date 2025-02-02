@@ -1,10 +1,12 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, List
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
-
+templates = Jinja2Templates(directory="templates")
 
 class MessageText(BaseModel):
     id: int
@@ -54,7 +56,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         manager.disconnect(websocket, user_id)
 
 
-async def send_notification(user_id: str, from_user: str, message: str):
+async def send_notification(user_id: str, from_user: str, message: str, request: Request):
     msg = Message(
         id=len(manager.active_connections),
         person_from=from_user,
@@ -64,4 +66,9 @@ async def send_notification(user_id: str, from_user: str, message: str):
             time_sent=datetime.now().strftime("%H:%M")
         )
     )
-    await manager.send_message(msg) 
+    await manager.send_message(msg)
+
+    return templates.TemplateResponse("your_template.html", {
+        "request": request,
+        "message": message
+    })
