@@ -118,10 +118,11 @@ async def edit_task_form(
         current_user: models.User = Depends(get_current_user_for_id)
 ):
     result = await db.execute(
-        select(models.Task).options(selectinload(models.Task.subject)).where(models.Task.id == task_id))
+        select(models.Task)
+        .options(selectinload(models.Task.subject))
+        .where(models.Task.id == task_id)
+    )
     task = result.scalar_one_or_none()
-
-    await db.refresh(task)
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -132,34 +133,46 @@ async def edit_task_form(
     return templates.TemplateResponse("edit_task.html", {"request": request, "task": task})
 
 
-@router.post("/task_edit/{task_id}")
-async def update_task(task_id: int,
-                      title: str = Form(...),
-                      description: str = Form(...),
-                      deadline: str = Form(...),
-                      db: AsyncSession = Depends(get_db),
-                      current_user: models.User = Depends(get_current_user_for_id)
-                      ):
-    result = await db.execute(
-        select(models.Task).options(selectinload(models.Task.subject)).filter(models.Task.id == task_id)
-    )
-    task = result.scalar_one_or_none()
+@router.post("/edit/{task_id}")
+async def update_task(
+    task_id: int,
+    title: str = Form(...),
+    description: str = Form(...),
+    deadline: datetime = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    try:
+        stmt = (
+            select(models.Task)
+            .options(selectinload(models.Task.subject))
+            .where(models.Task.id == task_id)
+        )
+        result = await db.execute(stmt)
+        task = result.scalar_one_or_none()
 
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
 
-    if task.subject.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the teacher can edit tasks")
+        if task.subject.teacher_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to edit this task")
 
-    task.title = title
-    task.description = description
-    task.deadline = datetime.fromisoformat(deadline)
+        task.title = title
+        task.description = description
+        task.deadline = deadline
 
-    db.add(task)
-    await db.commit()
-    await db.refresh(task)
+        db.add(task)
+        await db.commit()
 
-    return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
+        return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
+
+    except Exception as e:
+        await db.rollback()
+        print(f"Error updating task: {str(e)}")
+        return RedirectResponse(
+            url=f"/tasks/edit/{task_id}",
+            status_code=303
+        )
 
 
 @router.post("/delete/{task_id}")
