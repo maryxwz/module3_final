@@ -5,10 +5,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
 from routes import auth, subjects, tasks, enrollments, notifications, chats
+from pathlib import Path
 
 
 app = FastAPI(debug=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @asynccontextmanager
