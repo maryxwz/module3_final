@@ -51,6 +51,10 @@ templates = Jinja2Templates(directory="templates")
 async def login_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
 
+@router.get("/my_chats/{chat_id}")
+async def login_page(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
+
 @router.websocket("/ws/chat/{chat_id}/{user_id}")
 async def websocket_chat(chat_id: int, user_id: int, websocket: WebSocket, db: AsyncSession = Depends(get_db)):
     try:

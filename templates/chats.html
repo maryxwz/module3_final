@@ -23,7 +23,7 @@
                 chats.forEach(chat => {
                     const li = document.createElement("li");
                     li.textContent = `Chat ID: ${chat.chat_id} - Group: ${chat.is_group ? "Yes" : "No"}`;
-                    li.onclick = () => window.location.href = `/chat/${chat.chat_id}`;
+                    li.onclick = () => window.location.href = `/my_chats/${chat.chat_id}`;
                     chatList.appendChild(li);
                 });
             } catch (error) {
