@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import datetime
 import asyncio
 from fastapi.templating import Jinja2Templates
+import json
 
 
 class ConnectionManager:
@@ -58,51 +59,47 @@ async def login_page(request: Request):
 @router.websocket("/ws/chat/{chat_id}/{user_id}")
 async def websocket_chat(chat_id: int, user_id: int, websocket: WebSocket, db: AsyncSession = Depends(get_db)):
     try:
-        print(f"Checking if user {user_id} is part of chat {chat_id}...")
         chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
         chat_participant = chat_participant.scalars().first()
 
         if not chat_participant:
-            print(f"User {user_id} is not a participant in chat {chat_id}. Closing WebSocket.")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             raise HTTPException(status_code=400, detail="User is not a participant in this chat")
 
-        print(f"User {user_id} is a valid participant. Connecting to WebSocket...")
         await manager.connect(chat_id, websocket)
 
-        try:
-            while True:
-                try:
-                    data = await websocket.receive_text()
-                    print(f"Received data: {data}")
+        user = await db.execute(select(User.username).filter_by(id=user_id))
+        user = user.scalars().first()
+        print(f"User {user} connected to chat {chat_id}")
 
-                    new_message = Message(chat_id=chat_id, sender_id=user_id, content=data, created_at=datetime.datetime.utcnow())
-                    db.add(new_message)
-                    await db.commit()
-                    print(f"Message saved and committed to DB: {new_message}")
+        while True:
+            try:
+                data = await websocket.receive_text()  
+                message_data = json.loads(data) 
 
-                    await manager.broadcast(chat_id, data)
-                    print(f"Message broadcasted to chat {chat_id}")
-                except asyncio.CancelledError:
-                    print(f"WebSocket connection was cancelled for user {user_id}.")
-                    break
+                message_data['username'] = user
+                
 
-        except WebSocketDisconnect:
-            print(f"WebSocket disconnected for user {user_id}")
-            manager.disconnect(chat_id, websocket)
-        except Exception as e:
-            print(f"Error during WebSocket connection: {e}")
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            raise WebSocketDisconnect(f"Error during WebSocket connection: {e}")
+                new_message = Message(
+                    chat_id=chat_id,
+                    sender_id=user_id,
+                    content=message_data['content'],
+                    created_at=datetime.datetime.utcnow()
+                )
+                db.add(new_message)
+                await db.commit()
 
-    except HTTPException as http_exc:
-        print(f"HTTPException occurred: {http_exc.detail}")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        raise http_exc
+                await manager.broadcast(chat_id, json.dumps(message_data)) 
+
+            except asyncio.CancelledError:
+                break
+
+    except WebSocketDisconnect:
+        manager.disconnect(chat_id, websocket)
     except Exception as e:
-        print(f"Unexpected error: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         raise WebSocketDisconnect(f"Unexpected error: {e}")
+
 
 
 
@@ -137,7 +134,6 @@ async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
     
     user_ids_sorted = sorted(user_ids)
     
-    # Отримання існуючих чатів разом із учасниками
     existing_chats = await db.execute(
         select(Chat).options(selectinload(Chat.participants))
     )
@@ -148,13 +144,11 @@ async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
         if participant_ids == user_ids_sorted:
             raise HTTPException(status_code=400, detail="A chat with the same participants already exists")
     
-    # Створення нового чату
     new_chat = Chat(is_group=len(user_ids) > 2)
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)
     
-    # Додавання учасників до чату
     chat_participants = [ChatParticipant(chat_id=new_chat.id, user_id=user_id) for user_id in user_ids]
     db.add_all(chat_participants)
     await db.commit()
@@ -163,13 +157,31 @@ async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
 
 
 
+from sqlalchemy.orm import joinedload
+
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        result = await db.execute(select(Message).filter(Message.chat_id == chat_id).order_by(Message.created_at))
-        messages = result.scalars().all()
+        result = await db.execute(
+            select(Message, User.username)
+            .join(User, User.id == Message.sender_id)
+            .filter(Message.chat_id == chat_id)
+            .order_by(Message.created_at)
+        )
+        
+        messages = result.all()
 
-        return [{"id": msg.id, "sender_id": msg.sender_id, "content": msg.content, "created_at": msg.created_at} for msg in messages]
-
+        return [
+            {
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "username": username,  
+                "content": msg.content,
+                "created_at": msg.created_at,
+            }
+            for msg, username in messages
+        ]
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e}")
+

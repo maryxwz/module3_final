@@ -71,7 +71,7 @@ class Enrollment(Base):
     subject = relationship("Subject", back_populates="enrollments")
 
 
-<<<<<<< HEAD
+
 class Chat(Base):
     __tablename__ = "chats"
     
@@ -104,7 +104,7 @@ class Message(Base):
 
     chat = relationship("Chat", back_populates="messages")
 
-=======
+
 class TaskUpload(Base):
     __tablename__ = "task_uploads"
     
@@ -119,4 +119,4 @@ class TaskUpload(Base):
     
     task = relationship("Task", back_populates="uploads")
     student = relationship("User")
->>>>>>> c519b27fae364bba17c7d6c6c4bd7316af27f5d2
+

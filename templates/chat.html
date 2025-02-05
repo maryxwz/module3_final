@@ -1,104 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chat</title>
+  </head>
+  <body class="flex flex-col items-center justify-between h-screen">
+    <div class="w-full h-full flex flex-col">
+      <div class="w-full p-5 bg-white h-16">
+        <a href="/" class="text-blue-500 absolute">Back</a>
+        <h2 class="text-xl text-center font-semibold">Name of the chat... TODO</h1>
+      </div>
+      <div
+        id="messages"
+        class="flex-1 w-full overflow-y-auto p-5 bg-white border border-gray-200 rounded-lg mb-4"
+      ></div>
+  
+      <div class="w-full p-5 bg-white shadow-lg rounded-b-lg flex items-center">
+        <input
+          id="messageInput"
+          type="text"
+          placeholder="Type your message..."
+          class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          onclick="sendMessage()"
+          class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        let socket;
-        let chatId = {{ chat_id }};  // Replace this with the actual chat ID passed to the template
-        let userId = {{ user_id }};  // Replace this with the actual user ID passed to the template
+      const path = window.location.pathname;
 
-        function connectWebSocket() {
-            socket = new WebSocket(`ws://localhost:8000/ws/chat/${chatId}/${userId}`);
-            
-            socket.onopen = () => {
-                console.log("Connected to WebSocket");
-            };
+      let socket;
+      let chatId = path.split("/").pop();
+      let userId = 6;
 
-            socket.onmessage = (event) => {
-                const data = event.data;
-                const messagesContainer = document.getElementById("messages");
-                const newMessage = JSON.parse(data);
-                const messageElement = document.createElement("div");
-                messageElement.classList.add("message", "mb-4", "p-3", "rounded-lg", "bg-blue-100", "w-full", "max-w-lg", "self-start");
-                messageElement.innerHTML = ` 
-                    <strong class="font-semibold">${newMessage.sender_name}</strong><br>
-                    <span class="text-gray-600">${newMessage.content}</span>
-                `;
-                messagesContainer.appendChild(messageElement);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;  // Auto-scroll to bottom
-            };
+      function connectWebSocket() {
+        socket = new WebSocket(
+          `ws://localhost:8000/ws/chat/${chatId}/${userId}`
+        );
 
-            socket.onclose = (event) => {
-                console.log("WebSocket connection closed", event);
-            };
-
-            socket.onerror = (error) => {
-                console.log("WebSocket error", error);
-            };
-        }
-
-        function sendMessage() {
-            const messageInput = document.getElementById("messageInput");
-            const message = messageInput.value;
-
-            if (message.trim()) {
-                const messageData = {
-                    chat_id: chatId,
-                    user_id: userId,
-                    content: message
-                };
-
-                socket.send(JSON.stringify(messageData));
-                messageInput.value = "";  // Clear input after sending
-            }
-        }
-
-        window.onload = function () {
-            fetchMessages();
-            connectWebSocket();
+        socket.onopen = () => {
+          console.log("Connected to WebSocket");
         };
 
-        async function fetchMessages() {
-            const response = await fetch(`/chats/${chatId}/messages`);
-            const messages = await response.json();
-            const messagesContainer = document.getElementById("messages");
+        socket.onmessage = function (event) {
+          const messageData = JSON.parse(event.data);
+          const messageElement = document.createElement("div");
 
-            messages.forEach(msg => {
-                const messageElement = document.createElement("div");
-                messageElement.classList.add("message", "mb-4", "p-3", "rounded-lg", "bg-gray-100", "w-full", "max-w-lg", "self-start");
-                messageElement.innerHTML = `
-                    <strong class="font-semibold">${msg.sender_name}</strong><br>
+          messageElement.innerHTML = `<strong>${messageData.username}:</strong> ${messageData.content}`;
+          messageElement.classList.add(
+            "message",
+            "mb-4",
+            "p-3",
+            "rounded-lg",
+            "bg-blue-100",
+            "w-full",
+            "max-w-lg",
+            "self-start"
+          );
+
+          document.getElementById("messages").appendChild(messageElement);
+        };
+      }
+
+      async function fetchMessages() {
+        const response = await fetch(`/chats/${chatId}/messages`);
+        const messages = await response.json();
+        const messagesContainer = document.getElementById("messages");
+
+        messages.forEach((msg) => {
+          const messageElement = document.createElement("div");
+          messageElement.classList.add(
+            "message",
+            "mb-4",
+            "p-3",
+            "rounded-lg",
+            "bg-gray-100",
+            "w-full",
+            "max-w-lg",
+            "self-start"
+          );
+          messageElement.innerHTML = `
+                    <strong class="font-semibold">${msg.username}</strong><br>
                     <span class="text-gray-600">${msg.content}</span>
                 `;
-                messagesContainer.appendChild(messageElement);
-            });
+          messagesContainer.appendChild(messageElement);
+        });
 
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;  // Auto-scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const message = messageInput.value;
+
+        if (message.trim()) {
+          const messageData = {
+            chat_id: chatId,
+            user_id: userId,
+            content: message,
+          };
+
+          socket.send(JSON.stringify(messageData));
+          messageInput.value = "";
         }
+      }
+
+      window.onload = function () {
+        fetchMessages();
+        connectWebSocket();
+      };
     </script>
-</head>
-<body class="bg-gray-50 flex flex-col items-center justify-center h-screen">
-
-    <!-- Chat Header -->
-    <div class="w-full max-w-3xl p-5 bg-white shadow-lg rounded-t-lg">
-        <h1 class="text-2xl font-bold text-center">Chat Room</h1>
-    </div>
-
-    <!-- Messages container -->
-    <div id="messages" class="w-full max-w-3xl h-96 overflow-y-auto p-5 bg-white border border-gray-200 rounded-lg mb-4">
-        <!-- Messages will be dynamically loaded here -->
-    </div>
-
-    <!-- Message Input and Send Button -->
-    <div class="w-full max-w-3xl p-5 bg-white shadow-lg rounded-b-lg flex items-center">
-        <input id="messageInput" type="text" placeholder="Type your message..." class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <button onclick="sendMessage()" class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none">
-            Send
-        </button>
-    </div>
-
-</body>
+  </body>
 </html>
