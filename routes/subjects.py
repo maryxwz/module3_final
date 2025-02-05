@@ -9,7 +9,7 @@ from database import get_db
 from security import get_current_user, get_current_user_optional, get_current_user_for_id
 import uuid
 
-from module3_final.routes.notifications import send_notification
+from .notifications import send_notification
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
@@ -99,7 +99,7 @@ async def create_subject(
         title: str = Form(...),
         description: str = Form(...),
         db: AsyncSession = Depends(get_db),
-        current_user: str = Depends(get_current_user_for_id)
+        current_user: str = Depends(get_current_user)
 ):
     print(f"Creating course with title: {title}")
 

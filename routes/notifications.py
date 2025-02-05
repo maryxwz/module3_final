@@ -56,7 +56,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         manager.disconnect(websocket, user_id)
 
 
-async def send_notification(user_id: str, from_user: str, message: str, request: Request):
+async def send_notification(user_id: str, from_user: str, message: str):
     msg = Message(
         id=len(manager.active_connections),
         person_from=from_user,
@@ -68,7 +68,8 @@ async def send_notification(user_id: str, from_user: str, message: str, request:
     )
     await manager.send_message(msg)
 
-    return templates.TemplateResponse("your_template.html", {
-        "request": request,
+    return templates.TemplateResponse("subject_create.html", {
+        "request": Request,
         "message": message
     })
+# INFO:     127.0.0.1:61299 - "POST /subjects/create HTTP/1.1" 200 OK
