@@ -133,7 +133,9 @@ alembic.ini
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
-__pycache__/
+.idea/**
+*/__pycache__/*
+/uploads
 *.py[cod]
 *$py.class
 
