@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Налаштування профілю</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h2 {
+            color: #444;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label {
+            font-size: 14px;
+            color: #333;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #74b9ff;
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            border: none;
+        }
+
+        .btn:hover {
+            background-color: #4a90e2;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Налаштування профілю</h2>
+
+        <div class="input-group">
+            <label>Нік</label>
+            <input type="text" placeholder="Введіть новий нік">
+        </div>
+
+        <div class="input-group">
+            <label>Пошта</label>
+            <input type="email" placeholder="Введіть нову пошту">
+        </div>
+
+        <div class="input-group">
+            <label>Пароль</label>
+            <input type="password" placeholder="Новий пароль">
+        </div>
+
+        <div class="input-group">
+            <label>Курс</label>
+            <select>
+                <option>1 курс</option>
+                <option>2 курс</option>
+                <option>3 курс</option>
+                <option>4 курс</option>
+            </select>
+        </div>
+
+        <button class="btn">Зберегти зміни</button>
+    </div>
+
+</body>
+</html>
