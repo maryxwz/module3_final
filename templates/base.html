@@ -62,7 +62,9 @@
     </div>
 
     <div id="notifications-container" style="position: fixed; top: 20px; right: 20px; z-index: 1050;"></div>
+    {% block extra_content %}{% endblock %}
 
+    {% block scripts %}{% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

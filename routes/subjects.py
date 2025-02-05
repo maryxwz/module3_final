@@ -9,7 +9,7 @@ from database import get_db
 from security import get_current_user, get_current_user_optional, get_current_user_for_id
 import uuid
 
-from module3_final.routes.notifications import send_notification
+from routes.notifications import send_notification
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
@@ -50,8 +50,11 @@ async def index(
 
 
 @router.get("/create")
-async def create_subject_page(request: Request):
-    return templates.TemplateResponse("subject_create.html", {"request": request})
+async def create_subject_page(request: Request, message: str = None):
+    return templates.TemplateResponse("subject_create.html", {
+        "request": request,
+        "message": message if message else ""
+    })
 
 
 @router.get("/{subject_id}")
@@ -103,7 +106,7 @@ async def create_subject(
 ):
     print(f"Creating course with title: {title}")
 
-    result = await db.execute(select(models.User).filter(models.User.email == current_user))
+    result = await db.execute(select(models.User).filter(models.User.email == current_user.email))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -129,6 +132,8 @@ async def create_subject(
         await send_notification(user_id=str(user_id), from_user=str(user.id),
                                 message=f'Created a new course: {db_subject.title}')
 
+    redirect_url = f"/subjects/create?message=Subject successfully created!"
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 @router.get("/{subject_id}/participants")
 async def get_subject_participants(
