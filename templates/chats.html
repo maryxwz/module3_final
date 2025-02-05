@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chats</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Your Chats</h1>
+    <ul id="chat-list"></ul>
+    
+    <script>
+        async function fetchChats() {
+            const userId = 6; // Замініть на ID авторизованого користувача
+            try {
+                const response = await fetch(`/chats/?user_id=${userId}`);
+                if (!response.ok) throw new Error("Failed to fetch chats");
+                const chats = await response.json();
+                const chatList = document.getElementById("chat-list");
+                chatList.innerHTML = "";
+                
+                chats.forEach(chat => {
+                    const li = document.createElement("li");
+                    li.textContent = `Chat ID: ${chat.chat_id} - Group: ${chat.is_group ? "Yes" : "No"}`;
+                    li.onclick = () => window.location.href = `/my_chats/${chat.chat_id}`;
+                    chatList.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Error fetching chats:", error);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", fetchChats);
+    </script>
+</body>
+</html>

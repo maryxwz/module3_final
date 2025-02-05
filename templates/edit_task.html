@@ -4,7 +4,7 @@
 
 {% block content %}
 <h2>Редагувати завдання</h2>
-<form method="POST" action="{{ url_for('update_task', task_id=task.id) }}">
+<form method="POST" action="/tasks/edit/{{ task.id }}">
     <div class="mb-3">
         <label for="title" class="form-label">Назва завдання</label>
         <input type="text" class="form-control" id="title" name="title" value="{{ task.title }}" required>
