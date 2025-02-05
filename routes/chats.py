@@ -1,10 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
-from typing import List, Dict, Optional
+from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select
 from models import User
 from database import get_db
-from pydantic import BaseModel
 import datetime
 import asyncio
 

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import models, schemas, security
+import models, security
 from database import get_db
 from security import get_current_user_optional
 
