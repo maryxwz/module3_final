@@ -78,6 +78,7 @@ class Chat(Base):
     id = Column(Integer, primary_key=True, index=True)
     is_group = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    name = Column(String, nullable=False)
     
     messages = relationship("Message", back_populates="chat")
     participants = relationship("ChatParticipant", back_populates="chat")

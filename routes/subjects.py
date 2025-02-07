@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,8 @@ import models, schemas
 from database import get_db
 from security import get_current_user, get_current_user_optional
 import uuid
+from typing import List
+from .chats import create_chat
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
@@ -94,12 +96,14 @@ async def get_subject(
 
 @router.post("/create")
 async def create_subject(
+    background_tasks: BackgroundTasks,  
     title: str = Form(...),
     description: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: str = Depends(get_current_user),
 ):
     print(f"Creating course with title: {title}") 
+    
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
 
@@ -112,8 +116,10 @@ async def create_subject(
     db.add(db_subject)
     await db.commit()
     await db.refresh(db_subject)
-    print(f"Created course with id: {db_subject.id}") 
-    return RedirectResponse(url="/", status_code=303) 
+    print(f"Created course with id: {db_subject.id}")     
+    return RedirectResponse(url="/", status_code=303)
+
+
 
 
 @router.get("/{subject_id}/participants")

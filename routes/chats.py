@@ -1,16 +1,16 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
-from typing import List, Dict, Optional
+from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Chat, ChatParticipant, Message
-from sqlalchemy import select, desc
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from models import User
 from database import get_db
-from pydantic import BaseModel
 import datetime
 import asyncio
 from fastapi.templating import Jinja2Templates
 import json
+from security import get_current_user_for_id
 
 
 class ConnectionManager:
@@ -56,11 +56,17 @@ async def login_page(request: Request):
 async def login_page(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
 
-@router.websocket("/ws/chat/{chat_id}/{user_id}")
-async def websocket_chat(chat_id: int, user_id: int, websocket: WebSocket, db: AsyncSession = Depends(get_db)):
+@router.websocket("/ws/chat/{chat_id}")
+async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
     try:
+        if not token:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            raise HTTPException(status_code=400, detail="Token is required")
+
+        user_id = token.id
         chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
         chat_participant = chat_participant.scalars().first()
+
 
         if not chat_participant:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -128,23 +134,16 @@ async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/chats/")
-async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
-    if len(user_ids) < 2:
-        raise HTTPException(status_code=400, detail="At least two users required")
+async def create_chat(
+    title: str,  
+    user_ids: List[int], 
+    is_group: bool,  
+    db: AsyncSession = Depends(get_db)
+):
+    if len(user_ids) < 1:
+        raise HTTPException(status_code=400, detail="At least one user is required")
     
-    user_ids_sorted = sorted(user_ids)
-    
-    existing_chats = await db.execute(
-        select(Chat).options(selectinload(Chat.participants))
-    )
-    existing_chats = existing_chats.scalars().all()
-    
-    for chat in existing_chats:
-        participant_ids = sorted([participant.user_id for participant in chat.participants])
-        if participant_ids == user_ids_sorted:
-            raise HTTPException(status_code=400, detail="A chat with the same participants already exists")
-    
-    new_chat = Chat(is_group=len(user_ids) > 2)
+    new_chat = Chat(is_group=is_group, name=title) 
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)
@@ -157,7 +156,7 @@ async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
 
 
 
-from sqlalchemy.orm import joinedload
+
 
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
