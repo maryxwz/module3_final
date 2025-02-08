@@ -49,11 +49,11 @@ manager = ConnectionManager()
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/my_chats")
-async def login_page(request: Request):
+async def list_of_chats_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
 
 @router.get("/my_chats/{chat_id}")
-async def login_page(request: Request):
+async def chat_page(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
 
 @router.websocket("/ws/chat/{chat_id}")
@@ -127,7 +127,7 @@ async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
         )
         chats = result.all()
 
-        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at} for chat in chats]
+        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at, "name": chat.name} for chat in chats]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching chats: {str(e)}")
@@ -159,28 +159,45 @@ async def create_chat(
 
 
 @router.get("/chats/{chat_id}/messages")
-async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
+async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token = Depends(get_current_user_for_id)):
     try:
+        if not token:
+            raise HTTPException(status_code=400, detail="Token is required")
+
+        user_id = token.id
+        chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
+        chat_participant = chat_participant.scalars().first()
+
+        if not chat_participant:
+            raise HTTPException(status_code=400, detail="User is not a participant in this chat")
+
         result = await db.execute(
             select(Message, User.username)
             .join(User, User.id == Message.sender_id)
             .filter(Message.chat_id == chat_id)
             .order_by(Message.created_at)
         )
-        
         messages = result.all()
 
-        return [
-            {
-                "id": msg.id,
-                "sender_id": msg.sender_id,
-                "username": username,  
-                "content": msg.content,
-                "created_at": msg.created_at,
-            }
-            for msg, username in messages
-        ]
+        result = await db.execute(
+            select(Chat.subject_id).filter_by(id=chat_id)
+        )
+        subject_id = result.scalar_one_or_none()
+
+        return {
+            "user_id": user_id,
+            "subject_id": subject_id,
+            "messages": [
+                {
+                    "id": msg.id,
+                    "sender_id": msg.sender_id,
+                    "username": username,  
+                    "content": msg.content,
+                    "created_at": msg.created_at,
+                }
+                for msg, username in messages
+            ]
+        }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e}")
-

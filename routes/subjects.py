@@ -66,6 +66,12 @@ async def get_subject(
     
     result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = result.scalar_one_or_none()
+
+    result = await db.execute(select(models.Chat).filter(models.Chat.subject_id == subject_id))
+    chat = result.scalar_one_or_none()
+    chat_id = chat.id
+    print(chat_id)
+
     
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -89,7 +95,8 @@ async def get_subject(
             "request": request,
             "user": user,
             "subject": subject,
-            "tasks": tasks
+            "tasks": tasks,
+            "chat_id": chat_id
         }
     )
 
@@ -106,7 +113,9 @@ async def create_subject(
     
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
-
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     db_subject = models.Subject(
         title=title,
         description=description,
@@ -116,7 +125,23 @@ async def create_subject(
     db.add(db_subject)
     await db.commit()
     await db.refresh(db_subject)
-    print(f"Created course with id: {db_subject.id}")     
+    print(f"Created course with id: {db_subject.id}")  
+    
+    default_chat = models.Chat(
+        is_group=True,
+        name=f"{db_subject.title} Chat",
+        subject_id=db_subject.id  
+    )
+    db.add(default_chat)
+    await db.commit()
+    await db.refresh(default_chat)
+    print(f"Created default chat with id: {default_chat.id} for course id: {db_subject.id}")
+
+    chat_participant = models.ChatParticipant(chat_id=default_chat.id, user_id=user.id)
+    db.add(chat_participant)
+    await db.commit()
+    print(f"Added user {user.id} as a participant of chat {default_chat.id}")
+
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -129,13 +154,9 @@ async def get_subject_participants(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user_for_id)
 ):
-    
     if not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    print(f"Checking enrollment or teacher role for user_id={current_user.id} and subject_id={subject_id}")
-    
-    # Перевіряємо, чи користувач є студентом на курсі
     check_user_enrollment = await db.execute(
         select(models.Enrollment)
         .filter(
@@ -145,7 +166,6 @@ async def get_subject_participants(
     )
     enrollment = check_user_enrollment.scalar_one_or_none()
 
-    # Перевіряємо, чи користувач є викладачем цього курсу
     check_user_as_teacher = await db.execute(
         select(models.Subject)
         .filter(
@@ -187,7 +207,7 @@ async def get_subject_participants(
         ]
     }
 
-    return participants
+    return templates.TemplateResponse("participants.html", {"request": request, "subject": subject_data, "participants": participants, "user": current_user})
 
 
 

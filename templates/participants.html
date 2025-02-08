@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Participants - {{ subject.title }}
+{% endblock %}
+
+{% block content %}
+  {% include "subjects_navbar.html" %}
+
+  <div class="container mt-4">
+    <h2 class="text-2xl font-semibold mb-4">Participants in {{ subject.title }}</h2>
+
+    <div class="bg-white shadow rounded-lg p-4 mb-4">
+      <div class="border-b pb-4 mb-4">
+        <h5 class="text-lg font-medium">Teacher</h5>
+        <div class="mt-2">
+          <p><strong>Username:</strong> {{ participants.teacher.username }}</p>
+          <p><strong>Email:</strong> {{ participants.teacher.email }}</p>
+        </div>
+      </div>
+
+      <h3 class="text-xl font-semibold mb-3">Students</h3>
+      {% if participants.students %}
+        <div class="space-y-4">
+          {% for student in participants.students %}
+            <div class="p-4 bg-gray-100 rounded-md">
+              <p><strong>Username:</strong> {{ student.username }}</p>
+              <p><strong>Email:</strong> {{ student.email }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>No students enrolled in this subject yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+{% endblock %}
