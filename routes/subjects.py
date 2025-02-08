@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select
-import models, schemas
+import models, schemas, security
 from database import get_db
 from security import get_current_user, get_current_user_optional
 import uuid
@@ -127,21 +127,38 @@ async def get_subject_participants(
     subject_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    # current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(security.get_current_user_for_id)
 ):
-    # if not current_user:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
-
-    check_user_in_course = await db.execute(
-        select(models.Enrollment).filter(
-            # models.Enrollment.student.has(email=current_user), 
+    
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    print(f"Checking enrollment or teacher role for user_id={current_user.id} and subject_id={subject_id}")
+    
+    # Перевіряємо, чи користувач є студентом на курсі
+    check_user_enrollment = await db.execute(
+        select(models.Enrollment)
+        .filter(
+            models.Enrollment.student_id == current_user.id, 
             models.Enrollment.subject_id == subject_id
         )
     )
-    if not check_user_in_course.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Access denied")
+    enrollment = check_user_enrollment.scalar_one_or_none()
 
-    subject = await db.execute(
+    # Перевіряємо, чи користувач є викладачем цього курсу
+    check_user_as_teacher = await db.execute(
+        select(models.Subject)
+        .filter(
+            models.Subject.teacher_id == current_user.id, 
+            models.Subject.id == subject_id
+        )
+    )
+    teacher = check_user_as_teacher.scalar_one_or_none()
+
+    if not enrollment and not teacher:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    result = await db.execute(
         select(models.Subject)
         .options(
             joinedload(models.Subject.teacher),
@@ -150,7 +167,7 @@ async def get_subject_participants(
         .filter(models.Subject.id == subject_id)
     )
 
-    subject_data = subject.scalar_one_or_none()
+    subject_data = result.scalars().first()
     if not subject_data:
         raise HTTPException(status_code=404, detail="Subject not found")
 
@@ -166,8 +183,14 @@ async def get_subject_participants(
                 "username": enrollment.student.username,
                 "email": enrollment.student.email
             }
-            for enrollment in subject_data.enrollments
+            for enrollment in subject_data.enrollments  
         ]
     }
 
     return participants
+
+
+
+
+
+

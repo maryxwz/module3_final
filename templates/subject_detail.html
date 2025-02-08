@@ -1,116 +1,109 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %}{{ subject.title }}{% endblock %} {%
+block content %}
 
-{% block title %}{{ subject.title }}{% endblock %}
+{% include "subjects_navbar.html" %}
 
-{% block content %}
-<div class="container">
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="card-title">{{ subject.title }}</h2>
-            <p class="card-text">{{ subject.description }}</p>
-            {% if subject.teacher_id == user.id %}
-                <div class="d-flex align-items-center mb-3">
-                    <div class="input-group">
-                        <span class="input-group-text">Access Code</span>
-                        <input type="text" class="form-control" value="{{ subject.access_code }}" id="accessCode" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyAccessCode()">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTaskModal">
-                    Create Task
-                </button>
-            {% endif %}
-        </div>
-    </div>
-
-    <h3>Tasks</h3>
-
-    <div class="row">
-        {% for task in tasks %}
-        <div class="col-md-4 mb-4">
-            <div class="card course-card" style="cursor: pointer;" onclick="window.location.href='/tasks/task/{{ task.id }}'">
-                <div class="card-body">
-                    <h5 class="card-title">{{ task.title }}</h5>
-                    <p class="card-text">{{ task.description }}</p>
-                    <p class="card-text">
-                        <small class="text-muted">Deadline: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</small>
-                    </p>
-                    {% if subject.teacher_id == user.id %}
-                        <div class="mt-2" onclick="event.stopPropagation();">
-                            <form method="GET" action="{{ url_for('edit_task_form', task_id=task.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-warning btn-sm">Edit</button>
-                            </form>
-                            <form method="POST" action="/tasks/delete/{{ task.id }}" class="d-inline">
-                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                            </form>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    {% if subject.teacher_id == user.id %}
-
-    <a href="{{ url_for('settings_for_course', subject_id=subject.id) }}">Налаштування</a>
-    <div class="modal fade" id="createTaskModal">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Task</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="/tasks/create">
-                    <input type="hidden" name="subject_id" value="{{ subject.id }}">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="deadline" class="form-label">Deadline</label>
-                            <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Create</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    {% if subject.meet_link %}
-    <p>Посилання на Google Meet: <a href="{{ subject.meet_link }}" target="_blank">{{ subject.meet_link }}</a></p>
-{% endif %}
-    <script>
-    function copyAccessCode() {
-        const codeInput = document.getElementById('accessCode');
-        codeInput.select();
-        document.execCommand('copy');
-        
-        const toast = document.createElement('div');
-        toast.className = 'toast position-fixed top-0 end-0 m-3';
-        toast.innerHTML = `
-            <div class="toast-body">
-                Access code copied to clipboard!
-            </div>
-        `;
-        document.body.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
-        
-        toast.addEventListener('hidden.bs.toast', () => {
-            toast.remove();
-        });
-    }
-    </script>
+<div class="container mt-3">
+  <div
+    class="p-5 bg-blue-500 text-white rounded position-relative"
+    style="height: 250px"
+  >
+    <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
+      {{ subject.title }}
+    </h1>
+  </div>
 </div>
-{% endblock %} 
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-md-4">
+      {% if subject.teacher_id == user.id %}
+      <div class="card mb-3">
+        <div class="card-header">Access Code</div>
+        <div class="card-body">
+          <input
+            type="text"
+            class="form-control mb-2"
+            value="{{ subject.access_code }}"
+            id="accessCode"
+            readonly
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            onclick="copyAccessCode()"
+          >
+            Copy Code
+          </button>
+        </div>
+      </div>
+      {% endif %} {% if subject.meet_link %}
+      <div class="card">
+        <div class="card-header">Google Meet</div>
+        <div class="card-body">
+          <a
+            href="{{ subject.meet_link }}"
+            class="btn btn-primary w-100"
+            target="_blank"
+            >Join Meeting</a
+          >
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-md-8">
+       {% if subject.teacher_id == user.id %}
+<div class="modal fade" id="createHomeworkModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Homework</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/tasks/create">
+                <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="hw_title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="hw_title" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hw_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="hw_description" name="description" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hw_deadline" class="form-label">Deadline</label>
+                        <input type="datetime-local" class="form-control" id="hw_deadline" name="deadline" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+{% endif %}
+<div class="grid grid-cols-1 gap-4">
+    {% for item in tasks %}
+    <div class="bg-white p-4 h-16 rounded-lg shadow-sm border hover:shadow-lg cursor-pointer" onclick="window.location.href='/tasks/task/{{ item.id }}'">
+        <h5 class="text-lg font-semibold">{{ item.title if item.title else 'Announcement' }}: {{ item.description if item.description else 'Homework Task' }}</h5>
+    </div>  
+    {% endfor %}
+  </div>
+  
+    </div>
+  </div>
+</div>
+
+<script>
+  function copyAccessCode() {
+    const codeInput = document.getElementById("accessCode");
+    codeInput.select();
+    document.execCommand("copy");
+    alert("Access code copied!");
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %} 
+{% block title %}Homework Tasks{% endblock %} 
+
+{% block content %}
+ {% include "subjects_navbar.html" %}
+  <div class="container mt-4">
+    <div class="grid grid-cols-1 gap-4">
+      {% for item in tasks %}
+        <div class="bg-white p-4 h-16 rounded-lg shadow-sm border hover:shadow-lg cursor-pointer" onclick="window.location.href='/tasks/task/{{ item.id }}'">
+          <h5 class="text-lg font-semibold">{{ item.title if item.title else 'Homework Task' }}: {{ item.description if item.description else 'No Description' }}</h5>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

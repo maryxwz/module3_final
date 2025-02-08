@@ -110,6 +110,38 @@ async def homework_page(request: Request, db: AsyncSession = Depends(get_db),
     return templates.TemplateResponse("homeworks.html", {"request": request, "tasks": tasks})
 
 
+@router.get("/homework/{subject_id}")
+async def get_homework(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    result = await db.execute(select(models.User).filter(models.User.email == current_user))
+    user = result.scalar_one_or_none()
+
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalar_one_or_none()
+
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    if subject.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    result = await db.execute(select(models.Task).filter(models.Task.subject_id == subject_id))
+    tasks = result.scalars().all()
+
+    return templates.TemplateResponse(
+    "homework_list.html",
+    {
+        "request": request,
+        "user": user,
+        "tasks": tasks,
+        "subject": subject 
+    }
+)
+
 @router.get("/edit/{task_id}")
 async def edit_task_form(
         request: Request,
