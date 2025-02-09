@@ -8,6 +8,11 @@
         <div class="card-body">
             <h2 class="card-title">{{ subject.title }}</h2>
             <p class="card-text">{{ subject.description }}</p>
+            {% if subject.teacher_id != user.id %}
+                <a href="/subjects/{{ subject.id }}/statistics" class="btn btn-primary mb-3">
+                    Моя успішність
+                </a>
+            {% endif %}
             {% if subject.teacher_id == user.id %}
                 <div class="d-flex align-items-center mb-3">
                     <div class="input-group">
@@ -77,6 +82,10 @@
                         <div class="mb-3">
                             <label for="deadline" class="form-label">Deadline</label>
                             <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="max_grade" class="form-label">Max Grade</label>
+                            <input type="number" class="form-control" id="max_grade" name="max_grade" min="1" value="12" required>
                         </div>
                     </div>
                     <div class="modal-footer">

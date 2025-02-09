@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy import select
 import models, schemas
 from database import get_db
-from security import get_current_user, get_current_user_optional
+from security import get_current_user, get_current_user_optional, get_current_user_for_id
 import uuid
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
@@ -165,3 +165,47 @@ async def get_subject_participants(
     }
 
     return participants
+
+
+@router.get("/subjects/{subject_id}/statistics")
+async def get_subject_statistics(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    # Получаем все оценки студента по этому предмету
+    result = await db.execute(
+        select(models.Grade)
+        .join(models.TaskUpload)
+        .join(models.Task)
+        .options(
+            selectinload(models.Grade.task_upload)
+            .selectinload(models.TaskUpload.task)
+        )
+        .where(
+            models.Task.subject_id == subject_id,
+            models.TaskUpload.student_id == current_user.id
+        )
+    )
+    grades = result.scalars().all()
+
+    # Вычисляем среднюю оценку
+    avg_grade = sum(grade.grade for grade in grades) / len(grades) if grades else 0
+
+    # Get subject data
+    subject = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = subject.scalar_one_or_none()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    return templates.TemplateResponse(
+        "statistic.html",
+        {
+            "request": request,
+            "grades": grades,
+            "avg_grade": round(avg_grade, 2),
+            "subject_title": subject.title,
+            "user": current_user
+        }
+    )

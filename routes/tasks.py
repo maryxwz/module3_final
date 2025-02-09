@@ -10,9 +10,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
-import models
+import models 
 import schemas
 from database import get_db
 from security import get_current_user, get_current_user_for_id
@@ -30,6 +30,7 @@ async def create_task(
         title: str = Form(...),
         description: str = Form(...),
         deadline: datetime = Form(...),
+        max_grade: int = Form(...),
         subject_id: int = Form(...),
         db: AsyncSession = Depends(get_db),
         current_user: str = Depends(get_current_user)
@@ -50,7 +51,8 @@ async def create_task(
         title=title,
         description=description,
         deadline=deadline,
-        subject_id=subject_id
+        subject_id=subject_id,
+        max_grade=max_grade
     )
     db.add(db_task)
     await db.commit()
@@ -200,22 +202,30 @@ async def subject_delete(
 
 @router.get("/task/{task_id}")
 async def task_detail(
-    request: Request,
     task_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    stmt = (
+    task = await db.execute(
         select(models.Task)
-        .options(
-            selectinload(models.Task.subject),
-            selectinload(models.Task.uploads).selectinload(models.TaskUpload.student)
-        )
-        .where(models.Task.id == task_id)
+        .options(selectinload(models.Task.subject))
+        .filter(models.Task.id == task_id)
     )
+    task = task.scalar_one_or_none()
     
-    result = await db.execute(stmt)
-    task = result.scalar_one_or_none()
+    uploads = await db.execute(
+        select(models.TaskUpload)
+        .options(
+            selectinload(models.TaskUpload.task),
+            selectinload(models.TaskUpload.student),
+            selectinload(models.TaskUpload.grade)
+        )
+        .filter(models.TaskUpload.task_id == task_id)
+    )
+    uploads = uploads.scalars().all()
+    
+    my_upload = next((u for u in uploads if u.student_id == current_user.id), None)
     
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -254,14 +264,15 @@ async def task_detail(
         {
             "request": request,
             "task": task,
+            "uploads": uploads,
+            "my_upload": my_upload,
+            "status": status,
             "user": current_user,
-            "upload": upload,
-            "status": status
         }
     )
 
 
-@router.post("/task/{task_id}/upload")
+@router.post("/upload/{task_id}")
 async def upload_task(
     task_id: int,
     content: str = Form(None),
@@ -287,10 +298,11 @@ async def upload_task(
     saved_files = []
     if files:
         for file in files:
-            file_path = f"{task_id}_{current_user.id}_{file.filename}"
-            with open(UPLOAD_DIR / file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            saved_files.append(file_path)  
+            if file.filename:
+                file_path = f"{task_id}_{current_user.id}_{file.filename}"
+                with open(UPLOAD_DIR / file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+                saved_files.append(file_path)
     
     status = "uploaded"
     if task.deadline < datetime.utcnow():
@@ -298,7 +310,7 @@ async def upload_task(
     
     if upload:
         upload.content = content
-        upload.files = saved_files if files else upload.files
+        upload.files = saved_files if saved_files else upload.files
         upload.updated_at = datetime.utcnow()
         upload.status = status
     else:
@@ -311,8 +323,12 @@ async def upload_task(
         )
         db.add(upload)
     
-    await db.commit()
-    return RedirectResponse(url=f"/tasks/task/{task_id}", status_code=303)
+    try:
+        await db.commit()
+        return RedirectResponse(url=f"/tasks/task/{task_id}", status_code=303)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/uploads/{file_path:path}")

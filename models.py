@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, ARRAY
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, ARRAY, CheckConstraint
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
@@ -40,6 +40,7 @@ class Task(Base):
     description = Column(Text)
     deadline = Column(DateTime)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
+    max_grade = Column(Integer, default=12)
     
     subject = relationship("Subject", back_populates="tasks")
     comments = relationship("Comment", back_populates="task")
@@ -85,3 +86,15 @@ class TaskUpload(Base):
     
     task = relationship("Task", back_populates="uploads")
     student = relationship("User")
+    grade = relationship("Grade", back_populates="task_upload", uselist=False)
+
+
+class Grade(Base):
+    __tablename__ = "grades"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_upload_id = Column(Integer, ForeignKey("task_uploads.id"))
+    grade = Column(Integer, CheckConstraint('grade >= 0'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    task_upload = relationship("TaskUpload", back_populates="grade")
