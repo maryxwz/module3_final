@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 import models
 from database import get_db
 from routes.tasks import templates
@@ -8,7 +10,6 @@ from security import get_current_user, get_current_user_for_id
 from fastapi.responses import RedirectResponse
 from typing import List
 import schemas
-
 
 router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 
@@ -76,10 +77,10 @@ async def search_courses(request: Request, query: str, db: AsyncSession = Depend
 
 @router.get("/course_settings/{subject_id}", name="settings_for_course")
 async def settings_for_course(
-    subject_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_for_id),
+        subject_id: int,
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        current_user=Depends(get_current_user_for_id),
 ):
     result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = result.scalars().first()
@@ -101,3 +102,6 @@ async def save_meet_link(subject_id: int, meet_link: str = Form(...), db: AsyncS
     subject.meet_link = meet_link
     await db.commit()
     return RedirectResponse(url=f"/subjects/{subject_id}", status_code=303)
+
+
+

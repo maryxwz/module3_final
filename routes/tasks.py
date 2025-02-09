@@ -166,7 +166,7 @@ async def update_task(
 
 
 @router.post("/delete/{task_id}")
-async def subject_delete(
+async def task_delete(
         task_id: int,
         db: AsyncSession = Depends(get_db),
         current_user: models.User = Depends(get_current_user_for_id)
