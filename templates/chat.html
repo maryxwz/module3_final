@@ -1,154 +1,150 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chat</title>
   </head>
-  <body class="flex flex-col items-center justify-between h-screen">
-    <div class="w-full h-full flex flex-col">
-      <div class="w-full p-5 bg-white h-16">
-        <a href="/" class="text-blue-500 absolute">Back</a>
-      </div>
-      <div
-        id="messages"
-        class="flex-1 w-full overflow-y-auto p-5 bg-white border border-gray-200 rounded-lg mb-4"
-      ></div>
+  <body class="flex flex-col items-center justify-between h-screen"> -->
+{% extends "base.html" %} {% block content %}
+{% include "subjects_navbar.html" %}
+<div class="max-h-[50vh] flex">
+  <div class="w-full h-[73vh] px-24 flex flex-col">
+    <div
+      id="messages"
+      class="flex-1 w-full overflow-y-auto p-5 bg-white rounded-lg mb-4"
+    ></div>
 
-      <div class="w-full p-5 bg-white shadow-lg rounded-b-lg flex items-center">
-        <input
-          id="messageInput"
-          type="text"
-          placeholder="Type your message..."
-          class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          onclick="sendMessage()"
-          class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none"
-        >
-          Send
-        </button>
-      </div>
+    <div class="w-full p-5 bg-white rounded-b-lg flex items-center">
+      <input
+        id="messageInput"
+        type="text"
+        placeholder="Type your message..."
+        class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        onclick="sendMessage()"
+        class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none"
+      >
+        Send
+      </button>
     </div>
+  </div>
+</div>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      const path = window.location.pathname;
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  const path = window.location.pathname;
+  let socket;
+  let chatId = path.split("/").pop();
+  let currentUserId = null;
 
-      let socket;
-      let chatId = path.split("/").pop();
+  function getCookie(name) {
+    const match = document.cookie.match(
+      new RegExp("(^| )" + name + "=([^;]+)")
+    );
+    return match ? match[2] : null;
+  }
 
-      function getCookie(name) {
-        const match = document.cookie.match(
-          new RegExp("(^| )" + name + "=([^;]+)")
-        );
-        return match ? match[2] : null;
-      }
+  const token = getCookie("access_token");
 
-      const token = getCookie("access_token");
+  function connectWebSocket() {
+    socket = new WebSocket(`ws://localhost:8000/ws/chat/${chatId}`);
 
-      function connectWebSocket() {
-        // if (!token) {
-        //     console.error("Токен не знайдено!");
-        // } else {
-        //     socket = new WebSocket(`ws://localhost:8000/ws/chat/${chatId}?token=${token}`);
-        // }
+    socket.onopen = () => {
+      console.log("Connected to WebSocket");
+    };
 
-        socket = new WebSocket(`ws://localhost:8000/ws/chat/${chatId}`);
-        socket.onopen = () => {
-          console.log("Connected to WebSocket");
-        };
+    socket.onmessage = function (event) {
+      const messageData = JSON.parse(event.data);
+      renderMessage(messageData, currentUserId);
+    };
+  }
 
-        socket.onmessage = function (event) {
-          const messageData = JSON.parse(event.data);
-          const messageElement = document.createElement("div");
+  async function fetchMessages() {
+    try {
+      const response = await fetch(`/chats/${chatId}/messages`);
+      const data = await response.json();
 
-          messageElement.innerHTML = `<strong>${messageData.username}:</strong> ${messageData.content}`;
-          messageElement.classList.add(
-            "message",
-            "mb-4",
-            "p-3",
-            "rounded-lg",
-            "bg-blue-100",
-            "w-full",
-            "max-w-lg",
-            "self-start"
-          );
+      currentUserId = data.user_id;
+      const messages = data.messages;
+      const messagesContainer = document.getElementById("messages");
 
-          document.getElementById("messages").appendChild(messageElement);
-        };
-      }
+      messagesContainer.innerHTML = "";
 
-      async function fetchMessages() {
-        try {
-          const response = await fetch(`/chats/${chatId}/messages`);
-          const data = await response.json();
+      messages.forEach((msg) => {
+        renderMessage(msg, currentUserId);
+      });
 
-          const userId = data.user_id;
-          const subjectId = data.subject_id;
-          const messages = data.messages;
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  }
 
-          const messagesContainer = document.getElementById("messages");
-          messagesContainer.innerHTML = ""; // Очищаємо контейнер перед завантаженням нових повідомлень
+  function renderMessage(msg, userId) {
+    const messagesContainer = document.getElementById("messages");
+    const messageElement = document.createElement("div");
 
-          messages.forEach((msg) => {
-            const messageElement = document.createElement("div");
-            messageElement.classList.add(
-              "message",
-              "mb-4",
-              "p-3",
-              "rounded-lg",
-              "w-full",
-              "max-w-lg"
-            );
+    const isMyMessage = msg.sender_id === userId;
 
-            if (msg.sender_id === userId) {
-              messageElement.classList.add(
-                "bg-blue-500",
-                "text-white",
-                "self-end"
-              );
-            } else {
-              messageElement.classList.add(
-                "bg-gray-100",
-                "text-black",
-                "self-start"
-              );
-            }
+    messageElement.classList.add(
+      "message",
+      "mb-4",
+      "p-3",
+      "rounded-lg",
+      "max-w-lg",
+      "w-fit",
+      "flex",
+      "flex-col"
+    );
 
-            messageElement.innerHTML = `
-        <strong class="font-semibold">${msg.username}</strong><br>
-        <span>${msg.content}</span>
-      `;
-            messagesContainer.appendChild(messageElement);
-          });
+    if (isMyMessage) {
+      messageElement.classList.add(
+        "bg-blue-500",
+        "text-white",
+        "self-end",
+        "rounded-bl-none"
+      );
+    } else {
+      messageElement.classList.add(
+        "bg-gray-200",
+        "text-black",
+        "self-start",
+        "rounded-bl-none"
+      );
+    }
 
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        } catch (error) {
-          console.error("Error fetching messages:", error);
-        }
-      }
+    messageElement.innerHTML = `
+      <strong class="font-semibold">${msg.username}</strong>
+      <span>${msg.content}</span>
+    `;
 
-      function sendMessage() {
-        const messageInput = document.getElementById("messageInput");
-        const message = messageInput.value;
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 
-        if (message.trim()) {
-          const messageData = {
-            chat_id: chatId,
-            // user_id: userId,
-            content: message,
-          };
+  function sendMessage() {
+    const messageInput = document.getElementById("messageInput");
+    const message = messageInput.value.trim();
 
-          socket.send(JSON.stringify(messageData));
-          messageInput.value = "";
-        }
-      }
+    if (!message) return;
 
-      window.onload = function () {
-        fetchMessages();
-        connectWebSocket();
-      };
-    </script>
-  </body>
-</html>
+    const messageData = {
+      chat_id: chatId,
+      sender_id: currentUserId,
+      content: message,
+    };
+
+    socket.send(JSON.stringify(messageData));
+    messageInput.value = "";
+  }
+
+  window.onload = async function () {
+    await fetchMessages();
+    connectWebSocket();
+  };
+</script>
+<!-- </body>
+</html> -->
+{% endblock %}

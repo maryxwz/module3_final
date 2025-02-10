@@ -157,39 +157,40 @@ async def get_subject_participants(
     if not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    check_user_enrollment = await db.execute(
+    # Перевірка, чи є користувач викладачем або студентом предмета
+    enrollment_query = await db.execute(
         select(models.Enrollment)
-        .filter(
-            models.Enrollment.student_id == current_user.id, 
-            models.Enrollment.subject_id == subject_id
-        )
+        .filter_by(student_id=current_user.id, subject_id=subject_id)
     )
-    enrollment = check_user_enrollment.scalar_one_or_none()
+    enrollment = enrollment_query.scalar_one_or_none()
 
-    check_user_as_teacher = await db.execute(
+    teacher_query = await db.execute(
         select(models.Subject)
-        .filter(
-            models.Subject.teacher_id == current_user.id, 
-            models.Subject.id == subject_id
-        )
+        .filter_by(teacher_id=current_user.id, id=subject_id)
     )
-    teacher = check_user_as_teacher.scalar_one_or_none()
+    teacher = teacher_query.scalar_one_or_none()
 
     if not enrollment and not teacher:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     result = await db.execute(
         select(models.Subject)
         .options(
             joinedload(models.Subject.teacher),
             joinedload(models.Subject.enrollments).joinedload(models.Enrollment.student)
         )
-        .filter(models.Subject.id == subject_id)
+        .filter_by(id=subject_id)
     )
-
     subject_data = result.scalars().first()
+    
     if not subject_data:
         raise HTTPException(status_code=404, detail="Subject not found")
+
+    chat_query = await db.execute(select(models.Chat).filter_by(subject_id=subject_id))
+    chat = chat_query.scalar_one_or_none()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
 
     participants = {
         "teacher": {
@@ -204,13 +205,13 @@ async def get_subject_participants(
                 "email": enrollment.student.email
             }
             for enrollment in subject_data.enrollments  
-        ]
+        ],
     }
 
-    return templates.TemplateResponse("participants.html", {"request": request, "subject": subject_data, "participants": participants, "user": current_user})
-
-
-
+    return templates.TemplateResponse(
+        "participants.html",
+        {"request": request, "subject": subject_data, "participants": participants, "user": current_user, "chat_id": chat.id}
+    )
 
 
 

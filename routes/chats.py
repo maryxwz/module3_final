@@ -1,10 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Chat, ChatParticipant, Message
+from models import Chat, ChatParticipant, Message, Subject, User
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from models import User
 from database import get_db
 import datetime
 import asyncio
@@ -53,8 +52,28 @@ async def list_of_chats_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
 
 @router.get("/my_chats/{chat_id}")
-async def chat_page(request: Request):
-    return templates.TemplateResponse("chat.html", {"request": request})
+async def chat_page(
+    request: Request,
+    current_user: User = Depends(get_current_user_for_id),
+    db: AsyncSession = Depends(get_db),
+    chat_id: int = None
+):
+    subject_query = await db.execute(select(Subject).filter(Subject.chat.has(Chat.id == chat_id)))
+    subject = subject_query.scalar_one_or_none()
+    
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    return templates.TemplateResponse(
+        "chat.html",
+        {
+            "request": request,
+            "subject": subject,
+            "chat_id": chat_id,
+            "user": current_user  
+        }
+    )
+
 
 @router.websocket("/ws/chat/{chat_id}")
 async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
