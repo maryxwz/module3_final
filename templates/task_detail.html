@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>{{ task.title }}</h2>
+            <div class="text-muted">
+                Дедлайн: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}
+                {% if status == "assigned" %}
+                    <span class="badge bg-primary">Призначено</span>
+                {% elif status == "uploaded" %}
+                    <span class="badge bg-success">Здано</span>
+                {% elif status == "late" %}
+                    <span class="badge bg-warning">Здано із запізненням</span>
+                {% elif status == "overdue" %}
+                    <span class="badge bg-danger">Термін минув</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="task-description mb-4">
+                {{ task.description }}
+            </div>
+
+            {% if user.id != task.subject.teacher_id %}
+                <div class="upload-form">
+                    <h4>Ваша відповідь</h4>
+                    <form method="POST" action="/tasks/task/{{ task.id }}/upload" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Текст відповіді</label>
+                            <textarea class="form-control" id="content" name="content" rows="4">{{ upload.content if upload else '' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="files" class="form-label">Прикріпити файли</label>
+                            <input type="file" class="form-control" id="files" name="files" multiple>
+                        </div>
+                        {% if upload and upload.files %}
+                            <div class="mb-3">
+                                <h5>Прикріплені файли:</h5>
+                                <ul class="list-group">
+                                    {% for file in upload.files %}
+                                        <li class="list-group-item">
+                                            <a href="/uploads/{{ file.split('uploads/')[-1] }}" target="_blank">{{ file.split('_')[-1] }}</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            {% if upload %}Оновити відповідь{% else %}Надіслати відповідь{% endif %}
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="uploads-list">
+                    <h4>Відповіді студентів</h4>
+                    {% for upload in task.uploads %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ upload.student.username }}</h5>
+                                <p class="card-text">{{ upload.content }}</p>
+                                {% if upload.files %}
+                                    <div class="mb-2">
+                                        <h6>Прикріплені файли:</h6>
+                                        <ul class="list-group">
+                                            {% for file in upload.files %}
+                                                <li class="list-group-item">
+                                                    <a href="/uploads/{{ file.split('uploads/')[-1] }}" target="_blank">{{ file.split('_')[-1] }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                                <div class="text-muted">
+                                    Надіслано: {{ upload.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% if upload.updated_at != upload.uploaded_at %}
+                                        <br>Оновлено: {{ upload.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

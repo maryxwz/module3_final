@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Налаштування курсу: {{ subject.title }}</h2>
+
+<form action="{{ url_for('save_meet_link', subject_id=subject.id) }}" method="post">
+    <label for="meet_link">Посилання на Google Meet:</label>
+    <input type="url" name="meet_link" id="meet_link" value="{{ subject.meet_link or '' }}" required>
+    <button type="submit">Зберегти</button>
+</form>
+
+<a href="{{ url_for('get_subject', subject_id=subject.id) }}">← Назад до курсу</a>
+{% endblock %}

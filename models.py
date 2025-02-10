@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, ARRAY
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
@@ -26,7 +26,7 @@ class Subject(Base):
     description = Column(Text)
     teacher_id = Column(Integer, ForeignKey("users.id"))
     access_code = Column(String, unique=True)
-    
+    meet_link = Column(String, unique=True)
     teacher = relationship("User", back_populates="subjects_teaching")
     enrollments = relationship("Enrollment", back_populates="subject")
     tasks = relationship("Task", back_populates="subject")
@@ -43,6 +43,7 @@ class Task(Base):
     
     subject = relationship("Subject", back_populates="tasks")
     comments = relationship("Comment", back_populates="task")
+    uploads = relationship("TaskUpload", back_populates="task")
 
 
 class Comment(Base):
@@ -68,3 +69,54 @@ class Enrollment(Base):
     
     student = relationship("User", back_populates="enrollments")
     subject = relationship("Subject", back_populates="enrollments")
+
+
+
+class Chat(Base):
+    __tablename__ = "chats"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    is_group = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    messages = relationship("Message", back_populates="chat")
+    participants = relationship("ChatParticipant", back_populates="chat")
+
+
+class ChatParticipant(Base):
+    __tablename__ = "chat_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    chat = relationship("Chat", back_populates="participants")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    chat = relationship("Chat", back_populates="messages")
+
+
+class TaskUpload(Base):
+    __tablename__ = "task_uploads"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    student_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text, nullable=True)
+    files = Column(ARRAY(String), default=list) 
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status = Column(String, default="uploaded")  
+    
+    task = relationship("Task", back_populates="uploads")
+    student = relationship("User")
+
