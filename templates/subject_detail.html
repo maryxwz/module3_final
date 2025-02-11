@@ -1,112 +1,165 @@
-{% extends "base.html" %} {% block title %}{{ subject.title }}{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+{% block title %}{{ subject.title }}{% endblock %}
+{% block content %}
 
 {% include "subjects_navbar.html" %}
 
 <div class="container mt-3">
-  <div
-    class="p-5 bg-blue-500 text-white rounded position-relative"
-    style="height: 250px"
-  >
-    <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
-      {{ subject.title }}
-    </h1>
-  </div>
+    <div class="p-5 bg-blue-500 text-white rounded position-relative" style="height: 250px">
+        <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
+            {{ subject.title }}
+        </h1>
+        <p class="card-text">{{ subject.description }}</p>
+    </div>
 </div>
 
 <div class="container mt-4">
-  <div class="row">
-    <div class="col-md-4">
-      {% if subject.teacher_id == user.id %}
-      <div class="card mb-3">
-        <div class="card-header">Access Code</div>
-        <div class="card-body">
-          <input
-            type="text"
-            class="form-control mb-2"
-            value="{{ subject.access_code }}"
-            id="accessCode"
-            readonly
-          />
-          <button
-            class="btn btn-outline-secondary"
-            type="button"
-            onclick="copyAccessCode()"
-          >
-            Copy Code
-          </button>
-        </div>
-      </div>
-      {% endif %} {% if subject.meet_link %}
-      <div class="card">
-        <div class="card-header">
-          Google Meet
-        </div>
-        <div class="card-body">
-        
-          <a
-            href="{{ subject.meet_link }}"
-            class="btn btn-primary w-100"
-            target="_blank"
-            >Join Meeting</a
-          >
-        </div>
-      </div>
-      {% endif %}
-    </div>
-    <div class="col-md-8">
-       {% if subject.teacher_id == user.id %}
-<div class="modal fade" id="createHomeworkModal">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create Homework</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="row">
+        <div class="col-md-4">
+            {% if subject.teacher_id == user.id %}
+            <div class="card mb-3">
+                <div class="card-header">Access Code</div>
+                <div class="card-body">
+                    {% if subject.access_code %}
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" value="{{ subject.access_code }}" id="accessCode" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyAccessCode()">
+                                <i class="fas fa-copy"></i> Copy Code
+                            </button>
+                        </div>
+                        <button class="btn btn-warning" onclick="updateAccessCode()">
+                            <i class="fas fa-sync"></i> Оновити код
+                        </button>
+                        <button class="btn btn-danger" onclick="disableAccessCode()">
+                            <i class="fas fa-ban"></i> Відключити код
+                        </button>
+                    {% else %}
+                        <p><strong>Код доступу вимкнено</strong></p>
+                        <button class="btn btn-success" onclick="updateAccessCode()">
+                            <i class="fas fa-plus"></i> Створити новий код
+                        </button>
+                    {% endif %}
+                </div>
             </div>
-            <form method="POST" action="/tasks/create">
-                <input type="hidden" name="subject_id" value="{{ subject.id }}">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="hw_title" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="hw_title" name="title" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="hw_description" class="form-label">Description</label>
-                        <textarea class="form-control" id="hw_description" name="description" required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="hw_deadline" class="form-label">Deadline</label>
-                        <input type="datetime-local" class="form-control" id="hw_deadline" name="deadline" required>
+
+            <div class="card mb-3">
+                <div class="card-header">Керування курсом</div>
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createHomeworkModal">
+                        <i class="fas fa-plus"></i> Create Task
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if subject.meet_link %}
+            <div class="card">
+                <div class="card-header">Google Meet</div>
+                <div class="card-body">
+                    <a href="{{ subject.meet_link }}" class="btn btn-primary w-100" target="_blank">
+                        <i class="fas fa-video"></i> Join Meeting
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-8">
+            {% if subject.teacher_id == user.id %}
+            <div class="modal fade" id="createHomeworkModal">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Create Homework</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST" action="/tasks/create">
+                            <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="hw_title" class="form-label">Title</label>
+                                    <input type="text" class="form-control" id="hw_title" name="title" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="hw_description" class="form-label">Description</label>
+                                    <textarea class="form-control" id="hw_description" name="description" required></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="hw_deadline" class="form-label">Deadline</label>
+                                    <input type="datetime-local" class="form-control" id="hw_deadline" name="deadline" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="hw_max_grade" class="form-label">Maximum Grade</label>
+                                    <input type="number" class="form-control" id="hw_max_grade" name="max_grade" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Create</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Tasks</h5>
                 </div>
-            </form>
+                <div class="card-body">
+                    <div class="grid grid-cols-1 gap-4">
+                        {% for item in tasks %}
+                        <div class="bg-white p-4 rounded-lg shadow-sm border hover:shadow-lg cursor-pointer mb-3" 
+                             onclick="window.location.href='/tasks/task/{{ item.id }}'">
+                            <h5 class="text-lg font-semibold">
+                                {{ item.title if item.title else 'Announcement' }}
+                            </h5>
+                            <p class="text-muted mb-2">
+                                {{ item.description if item.description else 'Homework Task' }}
+                            </p>
+                            <small class="text-muted">
+                                Deadline: {{ item.deadline.strftime('%Y-%m-%d %H:%M') if item.deadline }}
+                            </small>
+                        </div>  
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
-
-
-{% endif %}
-<div class="grid grid-cols-1 gap-4">
-    {% for item in tasks %}
-    <div class="bg-white p-4 h-16 rounded-lg shadow-sm border hover:shadow-lg cursor-pointer" onclick="window.location.href='/tasks/task/{{ item.id }}'">
-        <h5 class="text-lg font-semibold">{{ item.title if item.title else 'Announcement' }}: {{ item.description if item.description else 'Homework Task' }}</h5>
-    </div>  
-    {% endfor %}
-  </div>
-  
-    </div>
-  </div>
 </div>
 
 <script>
-  function copyAccessCode() {
-    const codeInput = document.getElementById("accessCode");
-    codeInput.select();
-    document.execCommand("copy");
-    alert("Access code copied!");
-  }
+    function copyAccessCode() {
+        const input = document.getElementById("accessCode");
+        navigator.clipboard.writeText(input.value);
+        alert("Access Code copied: " + input.value);
+    }
+
+    async function updateAccessCode() {
+        const response = await fetch(`/subjects/{{ subject.id }}/update-access-code`, { method: "PUT" });
+        const data = await response.json();
+        if (response.ok) {
+            alert("Новий код доступу: " + data.new_access_code);
+            location.reload();
+        } else {
+            alert("Помилка: " + data.detail);
+        }
+    }
+
+    async function disableAccessCode() {
+        const confirmDisable = confirm("Ви впевнені, що хочете відключити код доступу?");
+        if (!confirmDisable) return;
+
+        const response = await fetch(`/subjects/{{ subject.id }}/disable-access-code`, { method: "PUT" });
+        const data = await response.json();
+        if (response.ok) {
+            alert("Код доступу вимкнено");
+            location.reload();
+        } else {
+            alert("Помилка: " + data.detail);
+        }
+    }
 </script>
 {% endblock %}

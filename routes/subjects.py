@@ -99,7 +99,7 @@ async def get_subject(
             "chat_id": chat_id
         }
     )
-
+  
 
 @router.post("/create")
 async def create_subject(
@@ -157,7 +157,6 @@ async def get_subject_participants(
     if not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    # Перевірка, чи є користувач викладачем або студентом предмета
     enrollment_query = await db.execute(
         select(models.Enrollment)
         .filter_by(student_id=current_user.id, subject_id=subject_id)
@@ -214,4 +213,49 @@ async def get_subject_participants(
     )
 
 
+@router.put("/{subject_id}/update-access-code")
+async def update_access_code(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    result = await db.execute(select(models.User).filter(models.User.email == current_user))
+    user = result.scalar_one_or_none()
+    
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalar_one_or_none()
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    if subject.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the teacher can update access code")
+    
+    new_access_code = str(uuid.uuid4())[:8]
+    subject.access_code = new_access_code
+    await db.commit()
+    
+    return {"new_access_code": new_access_code}
 
+@router.put("/{subject_id}/disable-access-code")
+async def disable_access_code(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    result = await db.execute(select(models.User).filter(models.User.email == current_user))
+    user = result.scalar_one_or_none()
+    
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalar_one_or_none()
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    if subject.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the teacher can disable access code")
+    
+    subject.access_code = None
+    await db.commit()
+    
+    return {"message": "Access code disabled"}
