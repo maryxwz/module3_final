@@ -72,6 +72,40 @@ class Enrollment(Base):
     subject = relationship("Subject", back_populates="enrollments")
 
 
+
+class Chat(Base):
+    __tablename__ = "chats"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    is_group = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    messages = relationship("Message", back_populates="chat")
+    participants = relationship("ChatParticipant", back_populates="chat")
+
+
+class ChatParticipant(Base):
+    __tablename__ = "chat_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    chat = relationship("Chat", back_populates="participants")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    chat = relationship("Chat", back_populates="messages")
+
+
 class TaskUpload(Base):
     __tablename__ = "task_uploads"
     

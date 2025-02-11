@@ -29,3 +29,4 @@ app.include_router(grades_statistic.router)
 
 if __name__ == "__main__":
     uvicorn.run(f"{__name__}:app", reload=True)
+

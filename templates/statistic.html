@@ -28,7 +28,60 @@
                     {% endfor %}
                 </tbody>
             </table>
+
+            <h3 class="mt-4">Графік успішності</h3>
+            <div class="chart-container" style="position: relative; height:300px; width:100%; max-width:600px; margin:auto;">
+                <canvas id="gradesChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
+
+<div id="chartData" data-grades='{{ grades_data|tojson|safe }}'></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    var grades;
+    document.addEventListener('DOMContentLoaded', function() {
+        grades = JSON.parse(document.getElementById('chartData').dataset.grades);
+        updateChart();
+    });
+    
+    function updateChart() {
+        const ctx = document.getElementById("gradesChart").getContext("2d");
+        const labels = grades.map(grade => grade.date);
+        const data = grades.map(grade => grade.grade);
+        const maxGrades = grades.map(grade => grade.max_grade);
+
+        new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Оцінки",
+                    data: data,
+                    borderColor: "#007bff",
+                    backgroundColor: "rgba(0, 123, 255, 0.2)",
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointBackgroundColor: "#007bff"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: Math.max(...maxGrades),
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', updateChart);
+</script>
 {% endblock %} 

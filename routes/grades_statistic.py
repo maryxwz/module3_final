@@ -44,11 +44,23 @@ async def get_statistics(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
+    # Добавляем подготовку данных для графика
+    grades_data = [
+        {
+            "date": grade.created_at.strftime("%Y-%m-%d"),
+            "grade": grade.grade,
+            "max_grade": grade.task_upload.task.max_grade,
+            "task_title": grade.task_upload.task.title
+        }
+        for grade in grades
+    ]
+
     return templates.TemplateResponse(
         "statistic.html",
         {
             "request": request,
             "grades": grades,
+            "grades_data": grades_data,  # Добавляем данные для графика
             "avg_grade": round(avg_grade, 2),
             "subject_title": subject.title,
             "user": current_user
