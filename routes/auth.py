@@ -21,18 +21,18 @@ async def authenticate_user(email: str, password: str, db: AsyncSession):
 
 @router.get("/")
 async def index(
-    request: Request, 
-    db: AsyncSession = Depends(get_db), 
-    current_user: str = Depends(get_current_user_optional)
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_user_optional)
 ):
     user = None
     subjects = []
-    
+
     if current_user:
         result = await db.execute(select(models.User).filter(models.User.email == current_user))
         user = result.scalar_one_or_none()
-        
-        if user: 
+
+        if user:
             result = await db.execute(
                 select(models.Subject).where(
                     (models.Subject.teacher_id == user.id) |
@@ -43,7 +43,7 @@ async def index(
                 )
             )
             subjects = result.scalars().all()
-    
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -66,10 +66,10 @@ async def register_page(request: Request):
 
 @router.post("/register")
 async def register(
-    email: str = Form(...),
-    username: str = Form(...),
-    password: str = Form(...),
-    db: AsyncSession = Depends(get_db)
+        email: str = Form(...),
+        username: str = Form(...),
+        password: str = Form(...),
+        db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(models.User).filter(models.User.email == email))
     if result.scalar_one_or_none():
@@ -90,9 +90,9 @@ async def register(
 
 @router.post("/login")
 async def login(
-    email: str = Form(...),
-    password: str = Form(...),
-    db: AsyncSession = Depends(get_db)
+        email: str = Form(...),
+        password: str = Form(...),
+        db: AsyncSession = Depends(get_db)
 ):
     user = await authenticate_user(email, password, db)
     if not user:
@@ -100,7 +100,7 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
-    
+
     access_token = security.create_access_token(data={"sub": email})
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -118,4 +118,34 @@ async def login(
 async def logout():
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("access_token")
-    return response 
+    return response
+
+
+@router.get("/change-password")
+async def change_password_page(request: Request):
+    return templates.TemplateResponse("change_password.html", {"request": request})
+
+
+@router.post("/change-password")
+async def change_password(
+        email: str = Form(...),
+        current_password: str = Form(...),
+        new_password: str = Form(...),
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_user_optional)
+):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user or not security.verify_password(current_password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect current password")
+
+    hashed_password = security.get_password_hash(new_password)
+    user.hashed_password = hashed_password
+    db.add(user)
+    await db.commit()
+
+    return {"message": "Password changed successfully"}
