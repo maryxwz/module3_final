@@ -14,6 +14,13 @@ from routes.notifications import send_notification
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
 
+users_ids = []
+async def get_all_users_id(db: AsyncSession = Depends(get_db)):
+    async with db.stream(select(models.User.id)) as result:
+        async for row in result:
+            users_ids.append(row)
+    return users_ids
+
 
 @router.get("/")
 async def index(
