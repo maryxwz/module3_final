@@ -83,6 +83,18 @@ async def get_subject(
     result = await db.execute(select(models.Task).filter(models.Task.subject_id == subject_id))
     tasks = result.scalars().all()
 
+    result_subjects = await db.execute(
+        select(models.Subject)
+        .where(
+            (models.Subject.teacher_id == user.id) |
+            models.Subject.id.in_(
+                select(models.Enrollment.subject_id)
+                .where(models.Enrollment.student_id == user.id)
+            )
+        )
+    )
+    subjects = result_subjects.scalars().all()
+
     return templates.TemplateResponse(
         "subject_detail.html",
         {
@@ -90,7 +102,8 @@ async def get_subject(
             "user": user,
             "subject": subject,
             "tasks": tasks,
-            "subject_id": subject_id
+            "subject_id": subject_id,
+            "subjects": subjects
         }
     )
 
