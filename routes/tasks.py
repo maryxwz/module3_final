@@ -259,6 +259,42 @@ async def task_detail(
     else:
         status = "assigned"
 
+    # Получаем комментарии
+    public_comments = await db.execute(
+        select(models.Comment)
+        .options(selectinload(models.Comment.author))
+        .filter(
+            models.Comment.task_id == task_id,
+            models.Comment.comment_type == 'public'
+        )
+        .order_by(models.Comment.created_at)
+    )
+    public_comments = public_comments.scalars().all()
+    
+    private_comments = []
+    feedback_comment = None
+    if my_upload:
+        private_comments = await db.execute(
+            select(models.Comment)
+            .options(selectinload(models.Comment.author))
+            .filter(
+                models.Comment.task_upload_id == my_upload.id,
+                models.Comment.comment_type == 'private'
+            )
+            .order_by(models.Comment.created_at)
+        )
+        private_comments = private_comments.scalars().all()
+        
+        feedback_comment = await db.execute(
+            select(models.Comment)
+            .filter(
+                models.Comment.task_upload_id == my_upload.id,
+                models.Comment.comment_type == 'feedback'
+            )
+            .order_by(models.Comment.created_at.desc())
+        )
+        feedback_comment = feedback_comment.scalar_one_or_none()
+    
     return templates.TemplateResponse(
         "task_detail.html",
         {
@@ -268,6 +304,9 @@ async def task_detail(
             "my_upload": my_upload,
             "status": status,
             "user": current_user,
+            "public_comments": public_comments,
+            "private_comments": private_comments,
+            "feedback_comment": feedback_comment
         }
     )
 
@@ -334,3 +373,63 @@ async def upload_task(
 @router.get("/uploads/{file_path:path}")
 async def get_upload(file_path: str):
     return FileResponse(f"{UPLOAD_DIR}/{file_path}")
+
+
+@router.post("/{task_id}/comment")
+async def add_task_comment(
+    task_id: int,
+    content: str = Form(...),
+    comment_type: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    comment = models.Comment(
+        content=content,
+        task_id=task_id,
+        author_id=current_user.id,
+        comment_type=comment_type
+    )
+    db.add(comment)
+    await db.commit()
+    return RedirectResponse(url=f"/tasks/task/{task_id}", status_code=303)
+
+
+@router.post("/upload/{upload_id}/comment")
+async def add_private_comment(
+    upload_id: int,
+    content: str = Form(...),
+    comment_type: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    # Загружаем upload вместе со связанными task и subject
+    upload = await db.execute(
+        select(models.TaskUpload)
+        .options(
+            selectinload(models.TaskUpload.task).selectinload(models.Task.subject)
+        )
+        .filter(models.TaskUpload.id == upload_id)
+    )
+    upload = upload.scalar_one_or_none()
+    
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+        
+    # Определяем получателя
+    recipient_id = None
+    if current_user.id == upload.task.subject.teacher_id:
+        recipient_id = upload.student_id
+    else:
+        recipient_id = upload.task.subject.teacher_id
+        
+    comment = models.Comment(
+        content=content,
+        task_id=upload.task_id,
+        task_upload_id=upload_id,
+        author_id=current_user.id,
+        recipient_id=recipient_id,
+        comment_type=comment_type
+    )
+    db.add(comment)
+    await db.commit()
+    return RedirectResponse(url=f"/tasks/task/{upload.task_id}", status_code=303)

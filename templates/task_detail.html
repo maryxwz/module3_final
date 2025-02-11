@@ -3,112 +3,195 @@
 {% block title %}{{ task.title }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2>{{ task.title }}</h2>
-            <div class="text-muted d-flex justify-content-between align-items-center">
-                <div>Дедлайн: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</div>
-                <div>
-                    {% if status == "assigned" %}
-                        <span class="badge bg-primary">Призначено</span>
-                    {% elif status == "uploaded" %}
-                        <span class="badge bg-success">Здано</span>
-                        {% if my_upload and my_upload.grade %}
-                            <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
+<div class="task-detail">
+    <div class="container">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>{{ task.title }}</h2>
+                <div class="text-muted d-flex justify-content-between align-items-center">
+                    <div>Дедлайн: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</div>
+                    <div>
+                        {% if status == "assigned" %}
+                            <span class="badge bg-primary">Призначено</span>
+                        {% elif status == "uploaded" %}
+                            <span class="badge bg-success">Здано</span>
+                            {% if my_upload and my_upload.grade %}
+                                <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
+                            {% endif %}
+                        {% elif status == "late" %}
+                            <span class="badge bg-warning">Здано із запізненням</span>
+                            {% if my_upload and my_upload.grade %}
+                                <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
+                            {% endif %}
+                        {% elif status == "overdue" %}
+                            <span class="badge bg-danger">Прострочено</span>
                         {% endif %}
-                    {% elif status == "late" %}
-                        <span class="badge bg-warning">Здано із запізненням</span>
-                        {% if my_upload and my_upload.grade %}
-                            <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
-                        {% endif %}
-                    {% elif status == "overdue" %}
-                        <span class="badge bg-danger">Прострочено</span>
-                    {% endif %}
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="card-body">
-            <p>{{ task.description }}</p>
-            
-            {% if user.id != task.subject.teacher_id %}
-                <form method="POST" action="/tasks/upload/{{ task.id }}" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="content" class="form-label">Ваша відповідь:</label>
-                        <textarea class="form-control" id="content" name="content" rows="4">{{ my_upload.content if my_upload else '' }}</textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="files" class="form-label">Прикріпити файли:</label>
-                        <input type="file" class="form-control" id="files" name="files" multiple>
-                    </div>
-                    {% if my_upload %}
-                        <button type="submit" class="btn btn-primary">Оновити</button>
-                    {% else %}
-                        <button type="submit" class="btn btn-primary">Відправити</button>
+            <div class="card-body">
+                <p>{{ task.description }}</p>
+                
+                {% if user.id != task.subject.teacher_id %}
+                    <form method="POST" action="/tasks/upload/{{ task.id }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Ваша відповідь:</label>
+                            <textarea class="form-control" id="content" name="content" rows="4">{{ my_upload.content if my_upload else '' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="files" class="form-label">Прикріпити файли:</label>
+                            <input type="file" class="form-control" id="files" name="files" multiple>
+                        </div>
+                        {% if my_upload %}
+                            <button type="submit" class="btn btn-primary">Оновити</button>
+                        {% else %}
+                            <button type="submit" class="btn btn-primary">Відправити</button>
+                        {% endif %}
+                    </form>
+
+                    {% if my_upload and my_upload.files %}
+                        <div class="mt-4">
+                            <h5>Прикріплені файли:</h5>
+                            <ul>
+                                {% for file in my_upload.files %}
+                                    <li><a href="/tasks/uploads/{{ file }}" target="_blank">{{ file.split('/')[-1] }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     {% endif %}
-                </form>
-
-                {% if my_upload and my_upload.files %}
-                    <div class="mt-4">
-                        <h5>Прикріплені файли:</h5>
-                        <ul>
-                            {% for file in my_upload.files %}
-                                <li><a href="/tasks/uploads/{{ file }}" target="_blank">{{ file.split('/')[-1] }}</a></li>
-                            {% endfor %}
-                        </ul>
-                    </div>
                 {% endif %}
-            {% endif %}
 
-            {% if task.subject.teacher_id == user.id %}
-                <!-- Отображение всех загрузок для учителя -->
-                <div class="mt-4">
-                    <h4>Відповіді студентів:</h4>
-                    {% for upload in uploads %}
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ upload.student.username }}</h5>
-                                <p class="card-text">{{ upload.content }}</p>
-                                {% if upload.files %}
-                                    <div class="mb-2">
-                                        <h6>Прикріплені файли:</h6>
-                                        <ul class="list-group">
-                                            {% for file in upload.files %}
-                                                <li class="list-group-item">
-                                                    <a href="/uploads/{{ file.split('uploads/')[-1] }}" target="_blank">{{ file.split('_')[-1] }}</a>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
+                {% if task.subject.teacher_id == user.id %}
+                    <!-- Отображение всех загрузок для учителя -->
+                    <div class="mt-4">
+                        <h4>Відповіді студентів:</h4>
+                        {% for upload in uploads %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ upload.student.username }}</h5>
+                                    <p class="card-text">{{ upload.content }}</p>
+                                    {% if upload.files %}
+                                        <div class="mb-2">
+                                            <h6>Прикріплені файли:</h6>
+                                            <ul class="list-group">
+                                                {% for file in upload.files %}
+                                                    <li class="list-group-item">
+                                                        <a href="/uploads/{{ file.split('uploads/')[-1] }}" target="_blank">{{ file.split('_')[-1] }}</a>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    <div class="text-muted">
+                                        Надіслано: {{ upload.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% if upload.updated_at != upload.uploaded_at %}
+                                            <br>Оновлено: {{ upload.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% endif %}
                                     </div>
-                                {% endif %}
-                                <div class="text-muted">
-                                    Надіслано: {{ upload.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
-                                    {% if upload.updated_at != upload.uploaded_at %}
-                                        <br>Оновлено: {{ upload.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                    <!-- Добавляем форму для оценки -->
+                                    <form method="POST" action="/grade_upload/{{ upload.id }}" class="mt-3">
+                                        <div class="input-group mb-3" style="max-width: 200px;">
+                                            <input type="number" class="form-control" name="grade" 
+                                                   min="0" max="{{ task.max_grade }}" 
+                                                   value="{{ upload.grade.grade if upload.grade else '' }}"
+                                                   placeholder="Оцінка (max: {{ task.max_grade }})">
+                                            <button class="btn btn-primary" type="submit">Оцінити</button>
+                                        </div>
+                                    </form>
+                                    <!-- Для студента показываем его оценку -->
+                                    {% if upload.grade %}
+                                        <div class="mt-2">
+                                            <strong>Оцінка: {{ upload.grade.grade }}</strong>
+                                        </div>
                                     {% endif %}
                                 </div>
-                                <!-- Добавляем форму для оценки -->
-                                <form method="POST" action="/grade_upload/{{ upload.id }}" class="mt-3">
-                                    <div class="input-group mb-3" style="max-width: 200px;">
-                                        <input type="number" class="form-control" name="grade" 
-                                               min="0" max="{{ task.max_grade }}" 
-                                               value="{{ upload.grade.grade if upload.grade else '' }}"
-                                               placeholder="Оцінка (max: {{ task.max_grade }})">
-                                        <button class="btn btn-primary" type="submit">Оцінити</button>
-                                    </div>
-                                </form>
-                                <!-- Для студента показываем его оценку -->
-                                {% if upload.grade %}
-                                    <div class="mt-2">
-                                        <strong>Оцінка: {{ upload.grade.grade }}</strong>
-                                    </div>
-                                {% endif %}
                             </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
+
+    <!-- Публичные комментарии -->
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Коментарі до завдання</h5>
+        </div>
+        <div class="card-body">
+            <div class="comments-list">
+                {% for comment in public_comments %}
+                <div class="comment">
+                    <strong>{{ comment.author.username }}</strong>
+                    <small>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    <p>{{ comment.content }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <form method="POST" action="/tasks/{{ task.id }}/comment" class="comment-form">
+                <div class="form-group">
+                    <textarea class="form-control" name="content" rows="2" 
+                        placeholder="Додати коментар..." required></textarea>
+                </div>
+                <input type="hidden" name="comment_type" value="public">
+                <button type="submit" class="btn btn-primary mt-2">
+                    <i class="fas fa-paper-plane"></i> Додати коментар
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if my_upload %}
+        <!-- Личные комментарии -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Особисті коментарі</h5>
+            </div>
+            <div class="card-body">
+                <div class="private-comments-list">
+                    {% for comment in private_comments %}
+                    <div class="comment {% if comment.author_id == user.id %}text-end{% endif %}">
+                        <strong>{{ comment.author.username }}</strong>
+                        <small>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        <p>{{ comment.content }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <form method="POST" action="/tasks/upload/{{ my_upload.id }}/comment" class="comment-form">
+                    <div class="form-group">
+                        <textarea class="form-control" name="content" rows="2" 
+                            placeholder="Особистий коментар..." required></textarea>
+                    </div>
+                    <input type="hidden" name="comment_type" value="private">
+                    <button type="submit" class="btn btn-info mt-2">
+                        <i class="fas fa-paper-plane"></i> Надіслати
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if user.id == task.subject.teacher_id %}
+            <!-- Комментарий учителя -->
+            <div class="card mt-4">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Коментар до роботи</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/tasks/upload/{{ my_upload.id }}/feedback" class="comment-form teacher-feedback">
+                        <div class="form-group">
+                            <textarea class="form-control" name="content" rows="2" 
+                                placeholder="Коментар до роботи...">{{ feedback_comment.content if feedback_comment else '' }}</textarea>
+                        </div>
+                        <input type="hidden" name="comment_type" value="feedback">
+                        <button type="submit" class="btn btn-warning mt-2">
+                            <i class="fas fa-save"></i> Зберегти коментар
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
 </div>
 {% endblock %} 
