@@ -36,26 +36,6 @@
     {% if subject.teacher_id == user.id %}
     <ul class="navbar-nav flex items-center">
       <li class="nav-item">
-        <button
-          class="bg-transparent border-0 text-primary fw-bold hover:bg-gray-200 px-3 py-1 rounded-md transition flex items-center"
-          data-bs-toggle="modal"
-          data-bs-target="#createHomeworkModal"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="flex items-center justify-center text-blue-500 w-5 h-5 rounded-full hover:bg-gray-200 transition"
-            width="6"
-            height="6"
-            viewBox="0 0 448 512"
-            fill="currentColor"
-          >
-            <path
-              d="M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 144L48 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l144 0 0 144c0 17.7 14.3 32 32 32s32-14.3 32-32l0-144 144 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-144 0 0-144z"
-            />
-          </svg>
-        </button>
-      </li>
-      <li class="nav-item">
         <a
           href="{{ url_for('settings_for_course', subject_id=subject.id) }}"
           class="flex items-center justify-center text-blue-500 w-10 h-10 rounded-full hover:bg-gray-200 transition"
