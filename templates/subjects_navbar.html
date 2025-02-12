@@ -24,6 +24,7 @@
           >Participants</a
         >
       </li>
+      <li class="nav-item">
       {% if chat_id %}
   <a
     class="text-gray-500 no-underline hover:text-blue-500 no-underline"
@@ -34,7 +35,7 @@
 {% else %}
   <span class="text-gray-500">Chat недоступний</span>
 {% endif %}
-
+ </li>
     </ul>
 
     {% if subject.teacher_id == user.id %}
