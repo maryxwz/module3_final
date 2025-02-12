@@ -112,6 +112,49 @@ async def homework_page(request: Request, db: AsyncSession = Depends(get_db),
     return templates.TemplateResponse("homeworks.html", {"request": request, "tasks": tasks})
 
 
+@router.get("/homework/{subject_id}")
+async def get_homework(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    user = await db.scalar(select(models.User).filter(models.User.email == current_user))
+
+    subject = await db.scalar(select(models.Subject).filter(models.Subject.id == subject_id))
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if subject.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    tasks = await db.scalars(select(models.Task).filter(models.Task.subject_id == subject_id))
+    tasks = tasks.all()
+
+    chat_query = await db.execute(select(models.Chat).filter(models.Chat.subject_id == subject_id))
+    chat = chat_query.scalar_one_or_none()
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    chat_id = chat.id
+
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    chat_id = chat.id
+
+    return templates.TemplateResponse(
+        "homework_list.html",
+        {
+            "request": request,
+            "user": user,
+            "tasks": tasks,
+            "subject": subject,
+            "chat_id": chat_id
+        }
+    )
+
+
+
 @router.get("/edit/{task_id}")
 async def edit_task_form(
         request: Request,

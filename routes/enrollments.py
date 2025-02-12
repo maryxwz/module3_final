@@ -21,10 +21,11 @@ async def enroll_in_subject(
 ):
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(select(models.Subject).filter(models.Subject.access_code == access_code))
     subject = result.scalar_one_or_none()
-
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
@@ -39,9 +40,25 @@ async def enroll_in_subject(
 
     db_enrollment = models.Enrollment(student_id=user.id, subject_id=subject.id)
     db.add(db_enrollment)
+
+    result = await db.execute(select(models.Chat).filter(models.Chat.subject_id == subject.id))
+    chat = result.scalar_one_or_none()
+
+    if chat:
+        result = await db.execute(
+            select(models.ChatParticipant).filter(
+                models.ChatParticipant.chat_id == chat.id,
+                models.ChatParticipant.user_id == user.id
+            )
+        )
+        if not result.scalar_one_or_none():
+            chat_participant = models.ChatParticipant(chat_id=chat.id, user_id=user.id)
+            db.add(chat_participant)
+
     await db.commit()
 
     return RedirectResponse(url="/", status_code=303)
+
 
 
 @router.get("/my-subjects", response_model=List[schemas.SubjectOut])

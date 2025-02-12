@@ -6,6 +6,10 @@ from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
 from routes import auth, subjects, tasks, enrollments, notifications, chats, grades_statistic
 from pathlib import Path
+from database import init_db
+
+import asyncio
+
 
 
 app = FastAPI(debug=True)

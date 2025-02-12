@@ -1,16 +1,15 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
-from typing import List, Dict, Optional
+from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Chat, ChatParticipant, Message
-from sqlalchemy import select, desc
+from models import Chat, ChatParticipant, Message, Subject, User
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from models import User
 from database import get_db
-from pydantic import BaseModel
 import datetime
 import asyncio
 from fastapi.templating import Jinja2Templates
 import json
+from security import get_current_user_for_id
 
 
 class ConnectionManager:
@@ -49,18 +48,44 @@ manager = ConnectionManager()
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/my_chats")
-async def login_page(request: Request):
+async def list_of_chats_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
 
 @router.get("/my_chats/{chat_id}")
-async def login_page(request: Request):
-    return templates.TemplateResponse("chat.html", {"request": request})
+async def chat_page(
+    request: Request,
+    current_user: User = Depends(get_current_user_for_id),
+    db: AsyncSession = Depends(get_db),
+    chat_id: int = None
+):
+    subject_query = await db.execute(select(Subject).filter(Subject.chat.has(Chat.id == chat_id)))
+    subject = subject_query.scalar_one_or_none()
+    
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
 
-@router.websocket("/ws/chat/{chat_id}/{user_id}")
-async def websocket_chat(chat_id: int, user_id: int, websocket: WebSocket, db: AsyncSession = Depends(get_db)):
+    return templates.TemplateResponse(
+        "chat.html",
+        {
+            "request": request,
+            "subject": subject,
+            "chat_id": chat_id,
+            "user": current_user  
+        }
+    )
+
+
+@router.websocket("/ws/chat/{chat_id}")
+async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
     try:
+        if not token:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            raise HTTPException(status_code=400, detail="Token is required")
+
+        user_id = token.id
         chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
         chat_participant = chat_participant.scalars().first()
+
 
         if not chat_participant:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -121,30 +146,23 @@ async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
         )
         chats = result.all()
 
-        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at} for chat in chats]
+        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at, "name": chat.name} for chat in chats]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching chats: {str(e)}")
 
 
 @router.post("/chats/")
-async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
-    if len(user_ids) < 2:
-        raise HTTPException(status_code=400, detail="At least two users required")
+async def create_chat(
+    title: str,  
+    user_ids: List[int], 
+    is_group: bool,  
+    db: AsyncSession = Depends(get_db)
+):
+    if len(user_ids) < 1:
+        raise HTTPException(status_code=400, detail="At least one user is required")
     
-    user_ids_sorted = sorted(user_ids)
-    
-    existing_chats = await db.execute(
-        select(Chat).options(selectinload(Chat.participants))
-    )
-    existing_chats = existing_chats.scalars().all()
-    
-    for chat in existing_chats:
-        participant_ids = sorted([participant.user_id for participant in chat.participants])
-        if participant_ids == user_ids_sorted:
-            raise HTTPException(status_code=400, detail="A chat with the same participants already exists")
-    
-    new_chat = Chat(is_group=len(user_ids) > 2)
+    new_chat = Chat(is_group=is_group, name=title) 
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)
@@ -157,31 +175,48 @@ async def create_chat(user_ids: List[int], db: AsyncSession = Depends(get_db)):
 
 
 
-from sqlalchemy.orm import joinedload
+
 
 @router.get("/chats/{chat_id}/messages")
-async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
+async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token = Depends(get_current_user_for_id)):
     try:
+        if not token:
+            raise HTTPException(status_code=400, detail="Token is required")
+
+        user_id = token.id
+        chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
+        chat_participant = chat_participant.scalars().first()
+
+        if not chat_participant:
+            raise HTTPException(status_code=400, detail="User is not a participant in this chat")
+
         result = await db.execute(
             select(Message, User.username)
             .join(User, User.id == Message.sender_id)
             .filter(Message.chat_id == chat_id)
             .order_by(Message.created_at)
         )
-        
         messages = result.all()
 
-        return [
-            {
-                "id": msg.id,
-                "sender_id": msg.sender_id,
-                "username": username,  
-                "content": msg.content,
-                "created_at": msg.created_at,
-            }
-            for msg, username in messages
-        ]
+        result = await db.execute(
+            select(Chat.subject_id).filter_by(id=chat_id)
+        )
+        subject_id = result.scalar_one_or_none()
+
+        return {
+            "user_id": user_id,
+            "subject_id": subject_id,
+            "messages": [
+                {
+                    "id": msg.id,
+                    "sender_id": msg.sender_id,
+                    "username": username,  
+                    "content": msg.content,
+                    "created_at": msg.created_at,
+                }
+                for msg, username in messages
+            ]
+        }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e}")
-
