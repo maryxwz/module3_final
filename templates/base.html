@@ -56,7 +56,27 @@
         <button type="submit" class="btn btn-warning btn-sm">Homeworks</button>
     </form>
     {% endif %}
+    {% if user %}
+<button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">
+    All Courses
+</button>
 
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasExampleLabel">Your Courses</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <ul class="list-group">
+            {% for subject in subjects %}
+                <li class="list-group-item">
+                    <a href="/subjects/{{ subject.id }}">{{ subject.title }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
     <div class="container mt-4">
         {% block content %}{% endblock %}
     </div>

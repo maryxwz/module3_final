@@ -24,13 +24,17 @@
           >Participants</a
         >
       </li>
-      <li class="nav-item">
-        <a
-          class="text-gray-500 no-underline hover:text-blue-500 no-underline"
-          href="{{ url_for('chat_page', chat_id=chat_id) }}"
-          >Chat</a
-        >
-      </li>
+      {% if chat_id %}
+  <a
+    class="text-gray-500 no-underline hover:text-blue-500 no-underline"
+    href="{{ url_for('chat_page', chat_id=chat_id) }}"
+  >
+    Chat
+  </a>
+{% else %}
+  <span class="text-gray-500">Chat недоступний</span>
+{% endif %}
+
     </ul>
 
     {% if subject.teacher_id == user.id %}

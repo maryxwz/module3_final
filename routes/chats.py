@@ -47,20 +47,22 @@ router = APIRouter()
 manager = ConnectionManager()
 templates = Jinja2Templates(directory="templates")
 
+
 @router.get("/my_chats")
 async def list_of_chats_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
 
+
 @router.get("/my_chats/{chat_id}")
 async def chat_page(
-    request: Request,
-    current_user: User = Depends(get_current_user_for_id),
-    db: AsyncSession = Depends(get_db),
-    chat_id: int = None
+        request: Request,
+        current_user: User = Depends(get_current_user_for_id),
+        db: AsyncSession = Depends(get_db),
+        chat_id: int = None
 ):
     subject_query = await db.execute(select(Subject).filter(Subject.chat.has(Chat.id == chat_id)))
     subject = subject_query.scalar_one_or_none()
-    
+
     if subject is None:
         raise HTTPException(status_code=404, detail="Subject not found")
 
@@ -70,13 +72,14 @@ async def chat_page(
             "request": request,
             "subject": subject,
             "chat_id": chat_id,
-            "user": current_user  
+            "user": current_user
         }
     )
 
 
 @router.websocket("/ws/chat/{chat_id}")
-async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
+async def websocket_chat(chat_id: int, websocket: WebSocket, token=Depends(get_current_user_for_id),
+                         db: AsyncSession = Depends(get_db)):
     try:
         if not token:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -85,7 +88,6 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
         user_id = token.id
         chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
         chat_participant = chat_participant.scalars().first()
-
 
         if not chat_participant:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -99,11 +101,10 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
 
         while True:
             try:
-                data = await websocket.receive_text()  
-                message_data = json.loads(data) 
+                data = await websocket.receive_text()
+                message_data = json.loads(data)
 
                 message_data['username'] = user
-                
 
                 new_message = Message(
                     chat_id=chat_id,
@@ -114,7 +115,7 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
                 db.add(new_message)
                 await db.commit()
 
-                await manager.broadcast(chat_id, json.dumps(message_data)) 
+                await manager.broadcast(chat_id, json.dumps(message_data))
 
             except asyncio.CancelledError:
                 break
@@ -124,9 +125,6 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
     except Exception as e:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         raise WebSocketDisconnect(f"Unexpected error: {e}")
-
-
-
 
 
 @router.get("/users/")
@@ -146,7 +144,8 @@ async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
         )
         chats = result.all()
 
-        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at, "name": chat.name} for chat in chats]
+        return [{"chat_id": chat.id, "is_group": chat.is_group, "created_at": chat.created_at, "name": chat.name} for
+                chat in chats]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching chats: {str(e)}")
@@ -154,31 +153,28 @@ async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/chats/")
 async def create_chat(
-    title: str,  
-    user_ids: List[int], 
-    is_group: bool,  
-    db: AsyncSession = Depends(get_db)
+        title: str,
+        user_ids: List[int],
+        is_group: bool,
+        db: AsyncSession = Depends(get_db)
 ):
     if len(user_ids) < 1:
         raise HTTPException(status_code=400, detail="At least one user is required")
-    
-    new_chat = Chat(is_group=is_group, name=title) 
+
+    new_chat = Chat(is_group=is_group, name=title)
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)
-    
+
     chat_participants = [ChatParticipant(chat_id=new_chat.id, user_id=user_id) for user_id in user_ids]
     db.add_all(chat_participants)
     await db.commit()
-    
+
     return {"chat_id": new_chat.id, "is_group": new_chat.is_group}
 
 
-
-
-
 @router.get("/chats/{chat_id}/messages")
-async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token = Depends(get_current_user_for_id)):
+async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token=Depends(get_current_user_for_id)):
     try:
         if not token:
             raise HTTPException(status_code=400, detail="Token is required")
@@ -210,13 +206,13 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
                 {
                     "id": msg.id,
                     "sender_id": msg.sender_id,
-                    "username": username,  
+                    "username": username,
                     "content": msg.content,
                     "created_at": msg.created_at,
                 }
                 for msg, username in messages
             ]
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e}")
