@@ -160,7 +160,7 @@ async def get_subject_participants(
         .filter(models.Subject.id == subject_id)
     )
 
-    subject_data = subject.scalar_one_or_none()
+    subject_data = subject.scalars().first()
     if not subject_data:
         raise HTTPException(status_code=404, detail="Subject not found")
 

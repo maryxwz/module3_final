@@ -68,7 +68,6 @@ class Enrollment(Base):
     student_id = Column(Integer, ForeignKey("users.id"))
     subject_id = Column(Integer, ForeignKey("subjects.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
-    last_accessed_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     student = relationship("User", back_populates="enrollments")
     subject = relationship("Subject", back_populates="enrollments")

@@ -4,19 +4,19 @@
 
 {% block content %}
     <h2>Search Results for "{{ query }}"</h2>
-    {% if courses %}
+    {% if subjects %}
     <div class="row g-4">
-        {% for course in courses %}
+        {% for subject in subjects %}
         <div class="col-md-4 mb-4">
             <div class="card home-card h-100">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">{{ course.title }}</h5>
+                    <h5 class="card-title mb-0">{{ subject.title }}</h5>
                 </div>
                 <div class="card-body">
-                    <p class="card-text">{{ course.description }}</p>
+                    <p class="card-text">{{ subject.description }}</p>
                 </div>
                 <div class="card-footer bg-transparent">
-                    <a href="/subjects/{{ course.id }}" class="btn btn-outline-primary">Open Course</a>
+                    <a href="/subjects/{{ subject.id }}" class="btn btn-outline-primary">Open Course</a>
                 </div>
             </div>
         </div>

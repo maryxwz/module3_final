@@ -80,16 +80,30 @@ async def get_enrolled_subjects(
 
 
 @router.get("/search_courses")
-async def search_courses(request: Request, query: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(models.Subject).filter(models.Subject.title.ilike(f"%{query}%"))
-    )
-    courses = result.scalars().all()
+async def search_courses(request: Request, query: str, current_user: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
 
-    if not courses:
+    result = await db.execute(
+        select(models.User).filter(models.User.email == current_user)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User ha found")
+
+    result = await db.execute(
+        select(models.Subject)
+        .join(models.Enrollment)
+        .filter(
+            models.Enrollment.student_id == user.id,
+            models.Subject.title.ilike(f"%{query}%")
+        )
+    )
+    subjects = result.scalars().all()
+
+    if not subjects:
         raise HTTPException(status_code=404, detail="No courses found")
 
-    return templates.TemplateResponse("search_courses.html", {"request": request, "courses": courses, "query": query})
+    return templates.TemplateResponse("search_courses.html", {"request": request, "subjects": subjects, "query": query})
 
 
 @router.get("/course_settings/{subject_id}", name="settings_for_course")
