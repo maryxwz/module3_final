@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy import select
 import models, schemas
 from database import get_db
-from security import get_current_user, get_current_user_optional
+from security import get_current_user, get_current_user_optional, get_current_user_for_id
 import uuid
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
@@ -56,10 +56,10 @@ async def create_subject_page(request: Request):
 
 @router.get("/{subject_id}")
 async def get_subject(
-    subject_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+        subject_id: int,
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_user)
 ):
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
@@ -110,10 +110,10 @@ async def get_subject(
 
 @router.post("/create")
 async def create_subject(
-    title: str = Form(...),
-    description: str = Form(...),
-    db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+        title: str = Form(...),
+        description: str = Form(...),
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_user)
 ):
     print(f"Creating course with title: {title}")
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
@@ -134,10 +134,10 @@ async def create_subject(
 
 @router.get("/{subject_id}/participants")
 async def get_subject_participants(
-    subject_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    # current_user: str = Depends(get_current_user)
+        subject_id: int,
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        # current_user: str = Depends(get_current_user)
 ):
     # if not current_user:
     #     raise HTTPException(status_code=401, detail="Unauthorized")
@@ -181,3 +181,8 @@ async def get_subject_participants(
     }
 
     return participants
+
+
+
+
+
