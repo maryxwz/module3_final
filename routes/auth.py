@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Re
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 import models, schemas, security
 from database import get_db
 from security import get_current_user_optional
@@ -27,11 +27,9 @@ async def index(
 ):
     user = None
     subjects = []
-
     if current_user:
         result = await db.execute(select(models.User).filter(models.User.email == current_user))
         user = result.scalar_one_or_none()
-
         if user:
             result = await db.execute(
                 select(models.Subject).where(
@@ -43,14 +41,9 @@ async def index(
                 )
             )
             subjects = result.scalars().all()
-
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "user": user,
-            "subjects": subjects
-        }
+        {"request": request, "user": user, "subjects": subjects}
     )
 
 
@@ -74,7 +67,6 @@ async def register(
     result = await db.execute(select(models.User).filter(models.User.email == email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
-
     hashed_password = security.get_password_hash(password)
     db_user = models.User(
         email=email,
@@ -84,7 +76,6 @@ async def register(
     )
     db.add(db_user)
     await db.commit()
-
     return RedirectResponse(url="/login", status_code=303)
 
 
@@ -100,7 +91,6 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
-
     access_token = security.create_access_token(data={"sub": email})
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -136,16 +126,37 @@ async def change_password(
 ):
     if not current_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-
     result = await db.execute(select(models.User).filter(models.User.email == email))
     user = result.scalar_one_or_none()
-
     if not user or not security.verify_password(current_password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect current password")
-
     hashed_password = security.get_password_hash(new_password)
     user.hashed_password = hashed_password
     db.add(user)
     await db.commit()
-
     return {"message": "Password changed successfully"}
+
+
+@router.post("/remove-student")
+async def remove_student(
+        student_id: int = Form(...),
+        subject_id: int = Form(...),
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_user_optional)
+):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalar_one_or_none()
+    if not subject or subject.teacher_id != current_user:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You are not authorized to remove students from this course")
+
+    await db.execute(
+        delete(models.Enrollment)
+        .where(models.Enrollment.student_id == student_id)
+        .where(models.Enrollment.subject_id == subject_id)
+    )
+    await db.commit()
+    return {"message": "Student removed from the course successfully"}
