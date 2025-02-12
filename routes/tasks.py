@@ -124,9 +124,6 @@ async def get_homework(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
-    if subject.teacher_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
     tasks = await db.scalars(select(models.Task).filter(models.Task.subject_id == subject_id))
     tasks = tasks.all()
 
