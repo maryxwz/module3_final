@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ subject.title }}{% endblock %}
 {% block content %}
+
 {% include "subjects_navbar.html" %}
 
 <div class="container mt-3">
@@ -9,11 +10,6 @@
             {{ subject.title }}
         </h1>
         <p class="card-text">{{ subject.description }}</p>
-        {% if subject.teacher_id != user.id %}
-            <a href="/subjects/{{ subject.id }}/statistics" class="btn btn-light mb-3 position-absolute bottom-0 end-0 m-3">
-                Моя успішність
-            </a>
-        {% endif %}
     </div>
 </div>
 
@@ -45,15 +41,6 @@
                     {% endif %}
                 </div>
             </div>
-
-            <div class="card mb-3">
-                <div class="card-header">Керування курсом</div>
-                <div class="card-body">
-                    <button class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createHomeworkModal">
-                        <i class="fas fa-plus"></i> Create Task
-                    </button>
-                </div>
-            </div>
             {% endif %}
 
             {% if subject.meet_link %}
@@ -70,31 +57,31 @@
 
         <div class="col-md-8">
             {% if subject.teacher_id == user.id %}
-            <div class="modal fade" id="createHomeworkModal">
+            <div class="modal fade" id="createTaskModal">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Create Homework</h5>
+                            <h5 class="modal-title">Create Task</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <form method="POST" action="/tasks/create">
                             <input type="hidden" name="subject_id" value="{{ subject.id }}">
                             <div class="modal-body">
                                 <div class="mb-3">
-                                    <label for="hw_title" class="form-label">Title</label>
-                                    <input type="text" class="form-control" id="hw_title" name="title" required>
+                                    <label for="title" class="form-label">Title</label>
+                                    <input type="text" class="form-control" id="title" name="title" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="hw_description" class="form-label">Description</label>
-                                    <textarea class="form-control" id="hw_description" name="description" required></textarea>
+                                    <label for="description" class="form-label">Description</label>
+                                    <textarea class="form-control" id="description" name="description" required></textarea>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="hw_deadline" class="form-label">Deadline</label>
-                                    <input type="datetime-local" class="form-control" id="hw_deadline" name="deadline" required>
+                                    <label for="deadline" class="form-label">Deadline</label>
+                                    <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="hw_max_grade" class="form-label">Maximum Grade</label>
-                                    <input type="number" class="form-control" id="hw_max_grade" name="max_grade" required>
+                                    <label for="max_grade" class="form-label">Maximum Grade</label>
+                                    <input type="number" class="form-control" id="max_grade" name="max_grade" required>
                                 </div>
                             </div>
                             <div class="modal-footer">
