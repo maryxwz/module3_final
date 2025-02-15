@@ -4,7 +4,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
-from routes import auth, subjects, tasks, enrollments, notifications, chats
+from routes import auth, subjects, tasks, enrollments, notifications, chats, calendar_page
+from calendar_page import *
 
 
 app = FastAPI(debug=True)
@@ -22,6 +23,7 @@ app.include_router(tasks.router)
 app.include_router(enrollments.router)
 app.include_router(notifications.router)
 app.include_router(chats.router)
+app.include_router(calendar_page.router)
 
 
 if __name__ == "__main__":

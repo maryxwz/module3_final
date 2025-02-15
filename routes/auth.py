@@ -85,7 +85,7 @@ async def register(
     )
     db.add(db_user)
     await db.commit()
-    result = await db.execute(select(models.User).filter(models.User.is_admin == True))
+    result = await db.execute(select(models.User).filter(models.User == True))
     all = result.scalars().all()
     for admin in all:
         await send_notification(
@@ -122,7 +122,7 @@ async def login(
         samesite="lax"
     )
 
-    result = await db.execute(select(models.User).filter(models.User.is_admin == True))
+    result = await db.execute(select(models.User).filter(models.User == True))
     all_admins = result.scalars().all()
 
     for admin in all_admins:
