@@ -110,6 +110,32 @@ class Message(Base):
     chat = relationship("Chat", back_populates="messages")
 
 
+    
+class PrivateChat(Base):
+    __tablename__ = "private_chats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(Integer, ForeignKey("users.id"))
+    user2_id = Column(Integer, ForeignKey("users.id"))
+
+    user1 = relationship("User", foreign_keys=[user1_id])
+    user2 = relationship("User", foreign_keys=[user2_id])
+    messages = relationship("PrivateMessage", back_populates="chat")
+
+
+class PrivateMessage(Base):
+    __tablename__ = "private_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("private_chats.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    chat = relationship("PrivateChat", back_populates="messages")
+    sender = relationship("User")
+    
+
 class TaskUpload(Base):
     __tablename__ = "task_uploads"
     

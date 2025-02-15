@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Chat, ChatParticipant, Message, Subject, User
+from models import Chat, ChatParticipant, Message, Subject, User, PrivateChat, PrivateMessage
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from database import get_db
@@ -10,6 +10,9 @@ import asyncio
 from fastapi.templating import Jinja2Templates
 import json
 from security import get_current_user_for_id
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -47,9 +50,15 @@ router = APIRouter()
 manager = ConnectionManager()
 templates = Jinja2Templates(directory="templates")
 
+
+"""PAGES"""
 @router.get("/my_chats")
 async def list_of_chats_page(request: Request):
     return templates.TemplateResponse("chats.html", {"request": request})
+
+@router.get("/user/chat/{username}")
+async def list_of_chats_page(request: Request):
+    return templates.TemplateResponse("private_chat.html", {"request": request})
 
 @router.get("/my_chats/{chat_id}")
 async def chat_page(
@@ -75,6 +84,10 @@ async def chat_page(
     )
 
 
+
+
+"""WEBSOCKETS"""
+# FOR GROUP
 @router.websocket("/ws/chat/{chat_id}")
 async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
     try:
@@ -126,16 +139,91 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
         raise WebSocketDisconnect(f"Unexpected error: {e}")
 
 
+# FOR PRIVATE
+@router.websocket("/ws/user/chat/{username}")
+async def websocket_private_chat(username: str, websocket: WebSocket, token=Depends(get_current_user_for_id), db: AsyncSession = Depends(get_db)):
+    chat_id = None 
+    try:
+        if not token:
+            logger.warning(f"User token not found, closing websocket connection.")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return  
+
+        current_user_id = token.id
+        logger.info(f"User {token.username} attempting to connect to private chat with {username}.")
+
+        recipient_query = await db.execute(select(User.id).filter_by(username=username))
+        recipient_ids = recipient_query.scalars().all()
+
+        if len(recipient_ids) != 1:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            raise HTTPException(status_code=400, detail="Username must be unique")
+        recipient_id = recipient_ids[0]
+
+        if not recipient_id:
+            logger.warning(f"Recipient user {username} not found, closing websocket connection.")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return  
+
+        logger.info(f"Recipient user {username} found, checking existing chats.")
+
+        chat_query = await db.execute(
+            select(PrivateChat)
+            .filter(
+                ((PrivateChat.user1_id == current_user_id) & (PrivateChat.user2_id == recipient_id)) |
+                ((PrivateChat.user1_id == recipient_id) & (PrivateChat.user2_id == current_user_id))
+            )
+        )
+        private_chat = chat_query.scalar_one_or_none()
+
+        if not private_chat:
+            logger.info(f"No existing chat found, creating a new private chat.")
+            private_chat = PrivateChat(user1_id=current_user_id, user2_id=recipient_id)
+            db.add(private_chat)
+            await db.commit()
+            await db.refresh(private_chat)
+
+        chat_id = private_chat.id
+        logger.info(f"User {token.username} connected to private chat with {username} (Chat ID: {chat_id}).")
+        
+        await manager.connect(chat_id, websocket)
+
+        while True:
+            try:
+                data = await websocket.receive_text()
+                logger.info(f"Received message from {token.username}: {data}")
+                message_data = json.loads(data)
+
+                new_message = PrivateMessage(
+                    chat_id=chat_id,
+                    sender_id=current_user_id,
+                    content=message_data['content'],
+                    created_at=datetime.datetime.utcnow()
+                )
+                db.add(new_message)
+                await db.commit()
+
+                message_data["username"] = token.username
+                message_data["sender_id"] = current_user_id 
+
+                await manager.broadcast(chat_id, json.dumps(message_data))
+            except asyncio.CancelledError:
+                break
+
+    except WebSocketDisconnect:
+        if chat_id is not None:
+            logger.info(f"WebSocket disconnected, removing user {token.username} from chat (Chat ID: {chat_id}).")
+            manager.disconnect(chat_id, websocket)
+    except Exception as e:
+        logger.error(f"Error during WebSocket connection: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
+    
 
 
 
-@router.get("/users/")
-async def get_users(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return users
 
-
+#CREATE AND GET ALL CHATS
 @router.get("/chats/")
 async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
     try:
@@ -176,7 +264,8 @@ async def create_chat(
 
 
 
-
+"""GET CHAT MESSAGES"""
+# FOR GROUP
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token = Depends(get_current_user_for_id)):
     try:
@@ -220,3 +309,63 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e}")
+
+# FOR PRIVATE
+@router.get("/user/chat/{username}/messages")
+async def get_private_chat_messages(
+    username: str,
+    db: AsyncSession = Depends(get_db),
+    token=Depends(get_current_user_for_id)
+):
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    current_user_id = token.id
+
+    recipient_query = await db.execute(select(User).filter_by(username=username))
+    recipient = recipient_query.scalar_one_or_none()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="User not found")
+    else:
+        print(f"Recipient found: {recipient.username}")
+
+
+    chat_query = await db.execute(
+    select(PrivateChat)
+    .filter(
+        ((PrivateChat.user1_id == current_user_id) & (PrivateChat.user2_id == recipient.id)) |
+        ((PrivateChat.user1_id == recipient.id) & (PrivateChat.user2_id == current_user_id))
+    )
+)
+    private_chat = chat_query.scalar_one_or_none()
+
+    if not private_chat:
+        private_chat = PrivateChat(user1_id=current_user_id, user2_id=recipient.id)
+        db.add(private_chat)
+        await db.commit()  
+        await db.refresh(private_chat)
+        print(f"New chat created: {private_chat.id}")
+
+    messages_query = await db.execute(
+        select(PrivateMessage, User.username)
+        .join(User, User.id == PrivateMessage.sender_id)
+        .filter(PrivateMessage.chat_id == private_chat.id)
+        .order_by(PrivateMessage.created_at)
+    )
+    messages = messages_query.all()
+
+    return {
+        "user_id": current_user_id,
+        "chat_id": private_chat.id,
+        "current_username": token.username,
+        "messages": [
+            {
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "username": sender_username, 
+                "content": msg.content,
+                "created_at": msg.created_at,
+            }
+            for msg, sender_username in messages
+        ]
+    }
