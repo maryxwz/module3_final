@@ -59,43 +59,44 @@ async def get_subject(
     subject_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user_for_id)
 ):
-    result = await db.execute(select(models.User).filter(models.User.email == current_user))
-    user = result.scalar_one_or_none()
-    
-    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    result = await db.execute(
+        select(models.Subject)
+        .options(
+            selectinload(models.Subject.tasks),
+            selectinload(models.Subject.teacher),
+            selectinload(models.Subject.enrollments)
+        )
+        .filter(models.Subject.id == subject_id)
+    )
     subject = result.scalar_one_or_none()
-
-    result = await db.execute(select(models.Chat).filter(models.Chat.subject_id == subject_id))
-    chat = result.scalar_one_or_none()
-    chat_id = chat.id
-    print(chat_id)
-
     
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
-    
-    if subject.teacher_id != user.id:
-        result = await db.execute(
-            select(models.Enrollment).filter(
-                models.Enrollment.student_id == user.id,
-                models.Enrollment.subject_id == subject_id
-            )
-        )
-        if not result.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="Access denied")
-    
-    result = await db.execute(select(models.Task).filter(models.Task.subject_id == subject_id))
+
+    # Получаем отсортированные задания отдельно
+    result = await db.execute(
+        select(models.Task)
+        .filter(models.Task.subject_id == subject_id)
+        .order_by(models.Task.id.desc())
+    )
     tasks = result.scalars().all()
+    
+    result = await db.execute(
+        select(models.Chat)
+        .filter(models.Chat.subject_id == subject_id)
+    )
+    chat = result.scalar_one_or_none()
+    chat_id = chat.id if chat else None
     
     return templates.TemplateResponse(
         "subject_detail.html",
         {
             "request": request,
-            "user": user,
             "subject": subject,
             "tasks": tasks,
+            "user": current_user,
             "chat_id": chat_id
         }
     )

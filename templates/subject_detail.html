@@ -56,44 +56,6 @@
         </div>
 
         <div class="col-md-8">
-            {% if subject.teacher_id == user.id %}
-            <div class="modal fade" id="createTaskModal">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Create Task</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <form method="POST" action="/tasks/create">
-                            <input type="hidden" name="subject_id" value="{{ subject.id }}">
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="title" class="form-label">Title</label>
-                                    <input type="text" class="form-control" id="title" name="title" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="description" class="form-label">Description</label>
-                                    <textarea class="form-control" id="description" name="description" required></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="deadline" class="form-label">Deadline</label>
-                                    <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="max_grade" class="form-label">Maximum Grade</label>
-                                    <input type="number" class="form-control" id="max_grade" name="max_grade" required>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary">Create</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Tasks</h5>

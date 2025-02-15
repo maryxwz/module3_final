@@ -45,31 +45,7 @@ class Task(Base):
     max_grade = Column(Integer, default=12)
     
     subject = relationship("Subject", back_populates="tasks")
-    comments = relationship("Comment", back_populates="task")
     uploads = relationship("TaskUpload", back_populates="task")
-
-
-class Comment(Base):
-    __tablename__ = "comments"
-    
-    id = Column(Integer, primary_key=True)
-    content = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Связи
-    task_id = Column(Integer, ForeignKey("tasks.id"))
-    task_upload_id = Column(Integer, ForeignKey("task_uploads.id"), nullable=True)
-    author_id = Column(Integer, ForeignKey("users.id"))
-    recipient_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    
-    # Тип комментария: 'public', 'private', 'feedback'
-    comment_type = Column(String, nullable=False)
-    
-    # Отношения
-    task = relationship("Task", back_populates="comments")
-    task_upload = relationship("TaskUpload", back_populates="comments")
-    author = relationship("User", foreign_keys=[author_id])
-    recipient = relationship("User", foreign_keys=[recipient_id])
 
 
 class Enrollment(Base):
@@ -136,7 +112,6 @@ class TaskUpload(Base):
     task = relationship("Task", back_populates="uploads")
     student = relationship("User")
     grade = relationship("Grade", back_populates="task_upload", uselist=False)
-    comments = relationship("Comment", back_populates="task_upload")
 
 
 class Grade(Base):
