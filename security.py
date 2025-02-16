@@ -3,13 +3,16 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Cookie
+from fastapi import Depends, HTTPException, status, Cookie, WebSocket
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from database import get_db
 from models import User
+
+logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
 ALGORITHM = "HS256"
@@ -102,4 +105,42 @@ async def get_current_user_optional(access_token: str | None = Cookie(None, alia
             return None
         return email
     except JWTError:
+        return None
+
+
+async def get_current_user_ws(
+    websocket: WebSocket,
+    db: AsyncSession
+) -> User:
+    try:
+        # Получаем токен из параметров запроса WebSocket
+        token = websocket.query_params.get("token")
+        if not token:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return None
+            
+        # Декодируем токен
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get("sub")
+        if user_id is None:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return None
+            
+        # Получаем пользователя из БД
+        result = await db.execute(
+            select(User).filter(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return None
+            
+        return user
+        
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return None
+    except Exception as e:
+        logger.error(f"WebSocket authentication error: {str(e)}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return None 

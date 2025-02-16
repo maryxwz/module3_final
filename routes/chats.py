@@ -1,16 +1,17 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Chat, ChatParticipant, Message, Subject, User, PrivateChat, PrivateMessage
-from sqlalchemy import select
+from models import Chat, ChatParticipant, Message, Subject, User, PrivateChat, PrivateMessage, Enrollment
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 from database import get_db
 import datetime
 import asyncio
 from fastapi.templating import Jinja2Templates
 import json
-from security import get_current_user_for_id
+from security import get_current_user_for_id, get_current_user_ws
 import logging
+from starlette.websockets import WebSocketState
 
 logger = logging.getLogger(__name__)
 
@@ -89,35 +90,57 @@ async def chat_page(
 """WEBSOCKETS"""
 # FOR GROUP
 @router.websocket("/ws/chat/{chat_id}")
-async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id),  db: AsyncSession = Depends(get_db)):
+async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get_current_user_for_id), db: AsyncSession = Depends(get_db)):
     try:
         if not token:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             raise HTTPException(status_code=400, detail="Token is required")
 
         user_id = token.id
-        chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
-        chat_participant = chat_participant.scalars().first()
-
-
-        if not chat_participant:
+        
+        # Проверяем, является ли пользователь учителем предмета
+        chat_query = await db.execute(
+            select(Chat).filter_by(id=chat_id)
+        )
+        chat = chat_query.scalar_one_or_none()
+        
+        if not chat:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            raise HTTPException(status_code=400, detail="User is not a participant in this chat")
+            return
+            
+        subject_query = await db.execute(
+            select(Subject).filter_by(id=chat.subject_id)
+        )
+        subject = subject_query.scalar_one_or_none()
+        
+        is_teacher = subject and subject.teacher_id == user_id
+        
+        # Проверяем, является ли пользователь студентом предмета
+        if not is_teacher:
+            enrollment_query = await db.execute(
+                select(Enrollment).filter_by(
+                    student_id=user_id,
+                    subject_id=chat.subject_id
+                )
+            )
+            is_student = enrollment_query.scalar_one_or_none() is not None
+            
+            if not is_student:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
 
         await manager.connect(chat_id, websocket)
 
-        user = await db.execute(select(User.username).filter_by(id=user_id))
-        user = user.scalars().first()
-        print(f"User {user} connected to chat {chat_id}")
+        user = await db.execute(select(User.username, User.avatar_url).filter_by(id=user_id))
+        user = user.first()
 
         while True:
             try:
                 data = await websocket.receive_text()  
                 message_data = json.loads(data) 
 
-                message_data['username'] = user
-                message_data['avatar_url'] = token.avatar_url
-                
+                message_data['username'] = user.username
+                message_data['avatar_url'] = user.avatar_url
 
                 new_message = Message(
                     chat_id=chat_id,
@@ -128,7 +151,7 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
                 db.add(new_message)
                 await db.commit()
 
-                await manager.broadcast(chat_id, json.dumps(message_data)) 
+                await manager.broadcast(chat_id, json.dumps(message_data))
 
             except asyncio.CancelledError:
                 break
@@ -275,40 +298,58 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
             raise HTTPException(status_code=400, detail="Token is required")
 
         user_id = token.id
-        chat_participant = await db.execute(select(ChatParticipant).filter_by(chat_id=chat_id, user_id=user_id))
-        chat_participant = chat_participant.scalars().first()
+        
+        # Получаем чат и предмет
+        chat_query = await db.execute(
+            select(Chat).filter_by(id=chat_id)
+        )
+        chat = chat_query.scalar_one_or_none()
+        
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+            
+        subject_query = await db.execute(
+            select(Subject).filter_by(id=chat.subject_id)
+        )
+        subject = subject_query.scalar_one_or_none()
+        
+        # Проверяем права доступа
+        is_teacher = subject and subject.teacher_id == user_id
+        
+        if not is_teacher:
+            enrollment_query = await db.execute(
+                select(Enrollment).filter_by(
+                    student_id=user_id,
+                    subject_id=chat.subject_id
+                )
+            )
+            is_student = enrollment_query.scalar_one_or_none() is not None
+            
+            if not is_student:
+                raise HTTPException(status_code=403, detail="Access denied")
 
-        if not chat_participant:
-            raise HTTPException(status_code=400, detail="User is not a participant in this chat")
-
+        # Получаем все сообщения чата
         result = await db.execute(
-            select(Message, User.username)
+            select(Message, User.username, User.avatar_url)
             .join(User, User.id == Message.sender_id)
             .filter(Message.chat_id == chat_id)
             .order_by(Message.created_at)
         )
         messages = result.all()
 
-        result = await db.execute(
-            select(Chat.subject_id).filter_by(id=chat_id)
-        )
-        subject_id = result.scalar_one_or_none()
-
         return {
             "user_id": user_id,
-            "subject_id": subject_id,
+            "subject_id": chat.subject_id,
             "messages": [
                 {
                     "id": msg.id,
                     "sender_id": msg.sender_id,
-                    "username": username,  
+                    "username": username,
+                    "avatar_url": avatar_url,
                     "content": msg.content,
                     "created_at": msg.created_at,
-                    "avatar_url": (await db.execute(
-                        select(User.avatar_url).where(User.id == msg.sender_id)
-                    )).scalar_one_or_none()
                 }
-                for msg, username in messages
+                for msg, username, avatar_url in messages
             ]
         }
     

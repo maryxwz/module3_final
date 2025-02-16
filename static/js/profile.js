@@ -146,24 +146,40 @@ async function updateAvatar(input) {
         formData.append('avatar', input.files[0]);
         
         try {
-            const response = await fetch('/api/profile/update', {
+            const response = await fetch('/api/profile/update-avatar', {
                 method: 'POST',
                 body: formData
             });
             
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+            
             const data = await response.json();
             
-            if (response.ok) {
-                document.querySelectorAll('.profile-avatar img, .profile-avatar-large img').forEach(img => {
-                    img.setAttribute('src', data.avatar_url);
+            if (data.success) {
+                // Обновляем все аватары на странице
+                document.querySelectorAll('img[data-user-avatar="' + data.user_id + '"]').forEach(img => {
+                    img.src = data.avatar_url;
                 });
+                
+                // Обновляем аватары в профиле
+                document.querySelectorAll('.profile-avatar img, .profile-avatar-large img').forEach(img => {
+                    img.src = data.avatar_url;
+                });
+                
+                // Скрываем плейсхолдеры
+                document.querySelectorAll('.avatar-placeholder, .avatar-placeholder-large').forEach(placeholder => {
+                    placeholder.style.display = 'none';
+                });
+                
                 showNotification('Avatar updated successfully', 'success');
             } else {
                 showNotification(data.detail || 'An error occurred', 'error');
             }
         } catch (error) {
             console.error('Avatar update error:', error);
-            showNotification('An error occurred while updating avatar', 'error');
+            showNotification(error.message || 'An error occurred while updating avatar', 'error');
         }
     }
 }

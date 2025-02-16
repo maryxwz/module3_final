@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 import models
 from database import get_db
 from routes.tasks import templates
@@ -79,16 +79,57 @@ async def get_enrolled_subjects(
 
 
 @router.get("/search_courses")
-async def search_courses(request: Request, query: str, db: AsyncSession = Depends(get_db)):
+async def search_courses(
+    request: Request, 
+    query: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    # Получаем курсы где пользователь преподаватель
+    teacher_result = await db.execute(
+        select(models.Subject)
+        .filter(models.Subject.teacher_id == current_user.id)
+        .order_by(models.Subject.title)
+    )
+    teacher_courses = teacher_result.scalars().all()
+
+    # Получаем курсы где пользователь студент
+    student_result = await db.execute(
+        select(models.Subject)
+        .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
+        .filter(models.Enrollment.student_id == current_user.id)
+        .order_by(models.Subject.title)
+    )
+    student_courses = student_result.scalars().all()
+
+    # Поиск по всем курсам пользователя
     result = await db.execute(
-        select(models.Subject).filter(models.Subject.title.ilike(f"%{query}%"))
+        select(models.Subject).where(
+            and_(
+                or_(
+                    models.Subject.teacher_id == current_user.id,
+                    models.Subject.id.in_(
+                        select(models.Enrollment.subject_id)
+                        .where(models.Enrollment.student_id == current_user.id)
+                    )
+                ),
+                models.Subject.title.ilike(f"%{query}%")
+            )
+        )
     )
     courses = result.scalars().all()
-
-    if not courses:
-        raise HTTPException(status_code=404, detail="No courses found")
-
-    return templates.TemplateResponse("search_courses.html", {"request": request, "courses": courses, "query": query})
+    
+    return templates.TemplateResponse(
+        "search_courses.html", 
+        {
+            "request": request,
+            "courses": courses,
+            "query": query,
+            "user": current_user,
+            "teacher_courses": teacher_courses,
+            "student_courses": student_courses
+        }
+    )
 
 
 @router.get("/course_settings/{subject_id}", name="settings_for_course")

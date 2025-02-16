@@ -134,5 +134,34 @@
     background-color: #f8f9fa;
 }
 
+.profile-section {
+    cursor: pointer;
+    margin-left: 2rem;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+}
+
+.profile-label {
+    font-size: 1rem;
+    color: #495057;
+    display: block;
+    margin-top: 6px;
+}
+
+.avatar-placeholder {
+    color: #6c757d;
+    font-size: 2.5rem;
+}
+
 
 

@@ -50,7 +50,16 @@
 
     socket.onmessage = function (event) {
       const messageData = JSON.parse(event.data);
+      console.log("Received message:", messageData);
       renderMessage(messageData, currentUserId);
+    };
+
+    socket.onerror = function(error) {
+      console.error("WebSocket error:", error);
+    };
+
+    socket.onclose = function() {
+      console.log("WebSocket connection closed");
     };
   }
 
@@ -119,14 +128,21 @@
     if (!message) return;
 
     const messageData = {
-      chat_id: chatId,
-      sender_id: currentUserId,
       content: message,
+      chat_id: chatId,
+      sender_id: currentUserId
     };
 
+    console.log("Sending message:", messageData);
     socket.send(JSON.stringify(messageData));
     messageInput.value = "";
   }
+
+  document.getElementById("messageInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  });
 
   window.onload = async function () {
     await fetchMessages();

@@ -199,15 +199,13 @@
         height: 40px;
         border-radius: 50%;
         overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
       }
       
       .profile-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        display: block;
       }
       
       .avatar-placeholder {
@@ -223,26 +221,30 @@
       }
 
       .profile-avatar-large {
-        width: 100px;
-        height: 100px;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
         border-radius: 50%;
         overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto;
-        background: #e9ecef;
+        position: relative;
       }
 
       .profile-avatar-large img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        display: block;
       }
 
       .avatar-placeholder-large {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
         color: #6c757d;
-        font-size: 2rem;
+        font-size: 3rem;
       }
 
       /* Стили для чата */
@@ -317,37 +319,34 @@
             </a>
           </div>
           <div class="d-flex align-items-center ms-auto">
-            <div class="flex flex-row items-center flex-nowrap gap-8">
+            <div class="flex flex-row items-center flex-nowrap gap-8 me-4">
                 <form method="GET" 
                       action="{{ url_for('search_courses') }}" 
-                      class="flex w-full max-h-12 max-w-md"
-                >
+                      class="flex w-full max-h-12 max-w-md">
                     <div class="flex w-full border border-gray-800 rounded-lg overflow-hidden transition-all focus-within:ring-2 focus-within:ring-blue-500">
                         <input type="text" 
                                name="query" 
                                class="w-full p-3 focus:outline-none" 
                                placeholder="Search Courses" 
-                               required
-                        />
+                               required/>
                         <button type="submit" 
-                                class="px-4 border-gray-800 bg-gray-200 hover:bg-blue-500 hover:text-white transition-all focus:outline-none"
-                        >
+                                class="px-4 border-gray-800 bg-gray-200 hover:bg-blue-500 hover:text-white transition-all focus:outline-none">
                             Search
                         </button>
                     </div>
                 </form>
             </div>
             <div class="profile-section text-center">
-              <div class="profile-avatar" data-bs-toggle="modal" data-bs-target="#profileModal">
-                {% if user.avatar_url %}
-                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
-                {% else %}
-                  <div class="avatar-placeholder">
-                    <i class="fas fa-user"></i>
-                  </div>
-                {% endif %}
-              </div>
-              <span class="profile-label">Profile</span>
+                <div class="profile-avatar" data-bs-toggle="modal" data-bs-target="#profileModal">
+                    {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+                    {% else %}
+                        <div class="avatar-placeholder">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <span class="profile-label">Profile</span>
             </div>
           </div>
         {% else %}
@@ -478,61 +477,75 @@
           <div class="modal-body text-center">
             <!-- View Mode -->
             <div id="profileViewMode">
-              <div class="profile-avatar-large mb-3">
-                {% if user.avatar_url %}
-                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
-                {% else %}
-                  <div class="avatar-placeholder-large">
-                    <i class="fas fa-user"></i>
-                  </div>
-                {% endif %}
-              </div>
-              
-              <h5 class="username-display mb-2">{{ user.username }}</h5>
-              <p class="email-display text-muted mb-4">{{ user.email }}</p>
-              
-              <button class="btn btn-primary" onclick="switchToEditMode()">Edit Profile</button>
+                <div class="profile-avatar-large mb-3">
+                    {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}" alt="Profile">
+                    {% else %}
+                        <div class="avatar-placeholder-large">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <h5 class="username-display mb-2">{{ user.username }}</h5>
+                <p class="email-display text-muted mb-4">{{ user.email }}</p>
+                
+                <div class="d-flex flex-column gap-3">
+                    <button class="btn btn-primary w-75 mx-auto" onclick="switchToEditMode()">Edit Profile</button>
+                    <a href="/logout" class="btn btn-outline-danger w-75 mx-auto">Logout</a>
+                </div>
             </div>
 
             <!-- Edit Mode -->
             <div id="profileEditMode" style="display: none;">
-              <div class="profile-avatar-large mb-3 position-relative">
-                {% if user.avatar_url %}
-                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
-                {% else %}
-                  <div class="avatar-placeholder-large">
-                    <i class="fas fa-user"></i>
-                  </div>
-                {% endif %}
-                <label class="btn btn-sm btn-primary position-absolute bottom-0 start-50 translate-middle-x">
-                  <i class="fas fa-camera"></i>
-                  <input type="file" name="avatar" accept="image/*" style="display: none;" onchange="updateAvatar(this)">
-                </label>
-              </div>
+                <div class="mb-4">
+                    <div class="profile-avatar-large">
+                        {% if user.avatar_url %}
+                            <img src="{{ user.avatar_url }}" alt="Profile">
+                        {% else %}
+                            <div class="avatar-placeholder-large">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <label class="btn btn-outline-primary w-75">
+                            Change Avatar
+                            <input type="file" 
+                                   name="avatar" 
+                                   accept="image/*" 
+                                   style="display: none;" 
+                                   onchange="updateAvatar(this)">
+                        </label>
+                    </div>
+                </div>
 
-              <div class="mb-4">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <h5 class="username-display m-0">{{ user.username }}</h5>
-                  <button class="btn btn-sm btn-outline-primary" onclick="showUsernameChangeModal()">
-                    Change Username
-                  </button>
+                <div class="d-flex flex-column gap-3 mb-4">
+                    <div class="text-center">
+                        <h5 class="username-display mb-2">{{ user.username }}</h5>
+                        <button class="btn btn-outline-primary w-75" onclick="showUsernameChangeModal()">
+                            Change Username
+                        </button>
+                    </div>
+                    
+                    <div class="text-center">
+                        <p class="email-display mb-2">{{ user.email }}</p>
+                        <button class="btn btn-outline-primary w-75" onclick="showEmailChangeModal()">
+                            Change Email
+                        </button>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button class="btn btn-outline-primary w-75" onclick="showPasswordChangeModal()">
+                            Change Password
+                        </button>
+                    </div>
                 </div>
-                <div class="d-flex align-items-center justify-content-between">
-                  <p class="email-display m-0">{{ user.email }}</p>
-                  <button class="btn btn-sm btn-outline-primary" onclick="showEmailChangeModal()">
-                    Change Email
-                  </button>
+                
+                <div class="d-flex justify-content-center gap-3">
+                    <button class="btn btn-secondary px-4" onclick="switchToViewMode()">Cancel</button>
+                    <button class="btn btn-primary px-4" onclick="saveChanges()">Save</button>
                 </div>
-              </div>
-              
-              <button class="btn btn-outline-primary mb-3" onclick="showPasswordChangeModal()">
-                Change Password
-              </button>
-              
-              <div class="d-flex justify-content-center gap-2">
-                <button class="btn btn-secondary" onclick="switchToViewMode()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveChanges()">Save Changes</button>
-              </div>
             </div>
           </div>
         </div>
@@ -548,7 +561,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <form id="emailChangeForm">
+            <form id="emailChangeForm" method="POST" action="/api/profile/update-email">
               <div class="mb-3">
                 <label class="form-label">New Email</label>
                 <input type="email" class="form-control" name="email" required>
@@ -602,7 +615,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <form id="passwordChangeForm">
+            <form id="passwordChangeForm" method="POST" action="/api/profile/change-password">
               <div class="mb-3">
                 <label class="form-label">Current Password</label>
                 <input type="password" class="form-control" name="current_password" required>
@@ -616,7 +629,7 @@
                 <input type="password" class="form-control" name="confirm_password" required>
               </div>
               <div class="text-center">
-                <button type="submit" class="btn btn-primary">Change Password</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
               </div>
             </form>
           </div>
