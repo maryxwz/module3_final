@@ -54,12 +54,12 @@ templates = Jinja2Templates(directory="templates")
 
 """PAGES"""
 @router.get("/my_chats")
-async def list_of_chats_page(request: Request):
-    return templates.TemplateResponse("chats.html", {"request": request})
+async def list_of_chats_page(request: Request, current_user: User = Depends(get_current_user_for_id)):
+    return templates.TemplateResponse("chats.html", {"request": request, "user": current_user})
 
 @router.get("/user/chat/{username}")
-async def list_of_chats_page(request: Request):
-    return templates.TemplateResponse("private_chat.html", {"request": request})
+async def list_of_chats_page(request: Request, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user_for_id), username: str = None):
+    return templates.TemplateResponse("private_chat.html", {"request": request, "user": current_user, "username": username})
 
 @router.get("/my_chats/{chat_id}")
 async def chat_page(

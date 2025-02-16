@@ -178,13 +178,11 @@ async def create_subject(
     await db.refresh(default_chat)
     print(f"Created default chat with id: {default_chat.id} for course id: {db_subject.id}")
 
-    # Додавання учасника до чату
     chat_participant = models.ChatParticipant(chat_id=default_chat.id, user_id=user.id)
     db.add(chat_participant)
     await db.commit()
     print(f"Added user {user.id} as a participant of chat {default_chat.id}")
 
-    # Відправка сповіщень усім користувачам
     result = await db.execute(select(models.User))
     all_users = result.scalars().all()
 
@@ -194,7 +192,6 @@ async def create_subject(
         await send_notification(user_id=str(user_id), from_user=str(user.id),
                                 message=f'Created a new course: {db_subject.title}')
 
-    # Перенаправлення після успішного створення
     redirect_url = f"/subjects/create?message=Subject successfully created!"
     return RedirectResponse(url=redirect_url, status_code=303)
 
