@@ -97,57 +97,64 @@ async def get_task(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
+    # Get task with subject info
     result = await db.execute(
         select(models.Task)
-        .options(
-            selectinload(models.Task.subject),
-            selectinload(models.Task.uploads).selectinload(models.TaskUpload.student),
-            selectinload(models.Task.uploads).selectinload(models.TaskUpload.grade),
-        )
+        .options(joinedload(models.Task.subject))
         .filter(models.Task.id == task_id)
-        .order_by(models.Task.id.desc())
     )
     task = result.scalar_one_or_none()
     
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
-    # Проверяем, является ли пользователь учителем или студентом этого предмета
-    is_teacher = task.subject.teacher_id == current_user.id
-    
+
+    # Get user's upload if exists
     result = await db.execute(
-        select(models.Enrollment)
+        select(models.TaskUpload)
+        .options(joinedload(models.TaskUpload.grade))
         .filter(
-            models.Enrollment.subject_id == task.subject_id,
-            models.Enrollment.student_id == current_user.id
+            models.TaskUpload.task_id == task_id,
+            models.TaskUpload.student_id == current_user.id
         )
     )
-    is_student = result.scalar_one_or_none() is not None
-    
-    if not (is_teacher or is_student):
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Получаем статус задания для текущего пользователя
-    status = "assigned"
-    if is_teacher:
-        status = "teacher"
+    my_upload = result.scalar_one_or_none()
+
+    # Get all uploads if user is teacher
+    uploads = []
+    if task.subject.teacher_id == current_user.id:
+        result = await db.execute(
+            select(models.TaskUpload)
+            .options(
+                joinedload(models.TaskUpload.student),
+                joinedload(models.TaskUpload.grade)
+            )
+            .filter(models.TaskUpload.task_id == task_id)
+            .order_by(models.TaskUpload.uploaded_at.desc())
+        )
+        uploads = result.scalars().all()
+
+    # Determine status
+    now = datetime.utcnow()
+    status = None
+    if my_upload:
+        if my_upload.status == "late":
+            status = "late"
+        else:
+            status = "uploaded"
+    elif now > task.deadline:
+        status = "overdue"
     else:
-        for upload in task.uploads:
-            if upload.student_id == current_user.id:
-                status = "submitted"
-                break
-    
+        status = "assigned"
+
     return templates.TemplateResponse(
         "task_detail.html",
         {
             "request": request,
             "task": task,
+            "my_upload": my_upload,
+            "uploads": uploads,
             "status": status,
-            "user": {
-                "id": current_user.id,
-                "email": current_user.email,
-                "username": current_user.username
-            }
+            "user": current_user
         }
     )
 
@@ -335,20 +342,24 @@ async def subject_delete(
 
     return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
 
-@router.post("/upload/{task_id}")
-async def upload_task(
+@router.post("/task/{task_id}/upload")
+async def upload_solution(
     task_id: int,
     content: str = Form(None),
     files: List[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    result = await db.execute(select(models.Task).filter(models.Task.id == task_id))
+    # Get the task
+    result = await db.execute(
+        select(models.Task).filter(models.Task.id == task_id)
+    )
     task = result.scalar_one_or_none()
     
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
+    # Check if user already has an upload
     result = await db.execute(
         select(models.TaskUpload)
         .filter(
@@ -356,27 +367,38 @@ async def upload_task(
             models.TaskUpload.student_id == current_user.id
         )
     )
-    upload = result.scalar_one_or_none()
+    existing_upload = result.scalar_one_or_none()
+    
+    # Determine status based on deadline
+    now = datetime.utcnow()
+    if now <= task.deadline:
+        status = "uploaded"
+    else:
+        status = "late"
     
     saved_files = []
     if files:
         for file in files:
             if file.filename:
-                file_path = f"{task_id}_{current_user.id}_{file.filename}"
-                with open(UPLOAD_DIR / file_path, "wb") as buffer:
+                # Create directory for user if it doesn't exist
+                user_upload_dir = UPLOAD_DIR / str(current_user.id)
+                user_upload_dir.mkdir(exist_ok=True)
+                
+                # Save file
+                file_path = user_upload_dir / file.filename
+                with file_path.open("wb") as buffer:
                     shutil.copyfileobj(file.file, buffer)
-                saved_files.append(file_path)
+                
+                saved_files.append(f"{current_user.id}/{file.filename}")
     
-    status = "uploaded"
-    if task.deadline < datetime.utcnow():
-        status = "late"
-    
-    if upload:
-        upload.content = content
-        upload.files = saved_files if saved_files else upload.files
-        upload.updated_at = datetime.utcnow()
-        upload.status = status
+    if existing_upload:
+        # Update existing upload
+        existing_upload.content = content
+        existing_upload.files = saved_files if saved_files else existing_upload.files
+        existing_upload.status = status
+        existing_upload.updated_at = now
     else:
+        # Create new upload
         upload = models.TaskUpload(
             task_id=task_id,
             student_id=current_user.id,

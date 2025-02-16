@@ -16,12 +16,24 @@
                         {% elif status == "uploaded" %}
                             <span class="badge bg-success">Здано</span>
                             {% if my_upload and my_upload.grade %}
-                                <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
+                                <span class="badge bg-info ms-2">
+                                    {% if my_upload.grade.updated_at and my_upload.grade.updated_at != my_upload.grade.created_at %}
+                                        Змінено: {{ my_upload.grade.grade }}/{{ task.max_grade }}
+                                    {% else %}
+                                        Оцінка: {{ my_upload.grade.grade }}/{{ task.max_grade }}
+                                    {% endif %}
+                                </span>
                             {% endif %}
                         {% elif status == "late" %}
                             <span class="badge bg-warning">Здано із запізненням</span>
                             {% if my_upload and my_upload.grade %}
-                                <span class="badge bg-info ms-2">Оцінка: {{ my_upload.grade.grade }}</span>
+                                <span class="badge bg-info ms-2">
+                                    {% if my_upload.grade.updated_at and my_upload.grade.updated_at != my_upload.grade.created_at %}
+                                        Змінено: {{ my_upload.grade.grade }}/{{ task.max_grade }}
+                                    {% else %}
+                                        Оцінка: {{ my_upload.grade.grade }}/{{ task.max_grade }}
+                                    {% endif %}
+                                </span>
                             {% endif %}
                         {% elif status == "overdue" %}
                             <span class="badge bg-danger">Прострочено</span>
@@ -33,7 +45,7 @@
                 <p>{{ task.description }}</p>
                 
                 {% if user.id != task.subject.teacher_id %}
-                    <form method="POST" action="/tasks/upload/{{ task.id }}" enctype="multipart/form-data">
+                    <form method="POST" action="/tasks/task/{{ task.id }}/upload" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label for="content" class="form-label">Ваша відповідь:</label>
                             <textarea class="form-control" id="content" name="content" rows="4">{{ my_upload.content if my_upload else '' }}</textarea>
@@ -62,7 +74,6 @@
                 {% endif %}
 
                 {% if task.subject.teacher_id == user.id %}
-                    <!-- Отображение всех загрузок для учителя -->
                     <div class="mt-4">
                         <h4>Відповіді студентів:</h4>
                         {% for upload in uploads %}
@@ -76,7 +87,9 @@
                                             <ul class="list-group">
                                                 {% for file in upload.files %}
                                                     <li class="list-group-item">
-                                                        <a href="/uploads/{{ file.split('uploads/')[-1] }}" target="_blank">{{ file.split('_')[-1] }}</a>
+                                                        <a href="/uploads/{{ file }}" target="_blank">
+                                                            {{ file.split('/')[-1] }}
+                                                        </a>
                                                     </li>
                                                 {% endfor %}
                                             </ul>
@@ -88,22 +101,53 @@
                                             <br>Оновлено: {{ upload.updated_at.strftime('%Y-%m-%d %H:%M') }}
                                         {% endif %}
                                     </div>
-                                    <!-- Добавляем форму для оценки -->
-                                    <form method="POST" action="/grade_upload/{{ upload.id }}" class="mt-3">
-                                        <div class="input-group mb-3" style="max-width: 200px;">
-                                            <input type="number" class="form-control" name="grade" 
-                                                   min="0" max="{{ task.max_grade }}" 
-                                                   value="{{ upload.grade.grade if upload.grade else '' }}"
-                                                   placeholder="Оцінка (max: {{ task.max_grade }})">
-                                            <button class="btn btn-primary" type="submit">Оцінити</button>
-                                        </div>
-                                    </form>
-                                    <!-- Для студента показываем его оценку -->
-                                    {% if upload.grade %}
-                                        <div class="mt-2">
-                                            <strong>Оцінка: {{ upload.grade.grade }}</strong>
-                                        </div>
-                                    {% endif %}
+                                    
+                                    <div class="mt-3">
+                                        {% if upload.grade %}
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-success">
+                                                    {% if upload.grade.updated_at and upload.grade.updated_at != upload.grade.created_at %}
+                                                        Змінено: {{ upload.grade.grade }}/{{ task.max_grade }}
+                                                    {% else %}
+                                                        Оцінка: {{ upload.grade.grade }}/{{ task.max_grade }}
+                                                    {% endif %}
+                                                </span>
+                                                <button class="btn btn-outline-primary btn-sm px-2" 
+                                                        onclick="toggleEditGrade('{{ upload.id }}')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                            <form id="editGradeForm{{ upload.id }}" 
+                                                  method="POST" 
+                                                  action="/grade_upload/{{ upload.id }}" 
+                                                  class="mt-2" 
+                                                  style="display: none;">
+                                                <div class="input-group" style="max-width: 200px;">
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           name="grade" 
+                                                           min="1" 
+                                                           max="{{ task.max_grade }}" 
+                                                           value="{{ upload.grade.grade }}"
+                                                           required>
+                                                    <button class="btn btn-primary" type="submit">Зберегти</button>
+                                                </div>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="/grade_upload/{{ upload.id }}" class="mt-2">
+                                                <div class="input-group" style="max-width: 200px;">
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           name="grade" 
+                                                           min="1" 
+                                                           max="{{ task.max_grade }}" 
+                                                           placeholder="Оцінка (max: {{ task.max_grade }})"
+                                                           required>
+                                                    <button class="btn btn-primary" type="submit">Оцінити</button>
+                                                </div>
+                                            </form>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}
@@ -113,4 +157,15 @@
         </div>
     </div>
 </div>
+
+<script>
+function toggleEditGrade(uploadId) {
+    const form = document.getElementById(`editGradeForm${uploadId}`);
+    if (form.style.display === 'none') {
+        form.style.display = 'block';
+    } else {
+        form.style.display = 'none';
+    }
+}
+</script>
 {% endblock %} 

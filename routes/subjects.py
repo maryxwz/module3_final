@@ -15,36 +15,58 @@ router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
 
 
+async def get_user_courses(db: AsyncSession, user_id: int):
+    teacher_result = await db.execute(
+        select(models.Subject)
+        .filter(models.Subject.teacher_id == user_id)
+        .order_by(models.Subject.title)
+    )
+    teacher_courses = teacher_result.scalars().all()
+
+    student_result = await db.execute(
+        select(models.Subject)
+        .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
+        .filter(models.Enrollment.student_id == user_id)
+        .order_by(models.Subject.title)
+    )
+    student_courses = student_result.scalars().all()
+
+    return teacher_courses, student_courses
+
 @router.get("/")
-async def index(
+async def home(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user_optional)
+    current_user: models.User = Depends(get_current_user_optional)
 ):
-    user = None
-    subjects = []
     if current_user:
-        result = await db.execute(select(models.User).filter(models.User.email == current_user))
-        user = result.scalar_one_or_none()
-        
-        result = await db.execute(
+        # Get teacher courses
+        teacher_result = await db.execute(
             select(models.Subject)
-            .where(
-                (models.Subject.teacher_id == user.id) |
-                models.Subject.id.in_(
-                    select(models.Enrollment.subject_id)
-                    .where(models.Enrollment.student_id == user.id)
-                )
-            )
+            .filter(models.Subject.teacher_id == current_user.id)
+            .order_by(models.Subject.title)
         )
-        subjects = result.scalars().all()
-    
+        teacher_courses = teacher_result.scalars().all()
+
+        # Get student courses
+        student_result = await db.execute(
+            select(models.Subject)
+            .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
+            .filter(models.Enrollment.student_id == current_user.id)
+            .order_by(models.Subject.title)
+        )
+        student_courses = student_result.scalars().all()
+    else:
+        teacher_courses = []
+        student_courses = []
+
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
-            "user": user,
-            "subjects": subjects
+            "user": current_user,
+            "teacher_courses": teacher_courses,
+            "student_courses": student_courses
         }
     )
 
@@ -75,7 +97,6 @@ async def get_subject(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
-    # Получаем отсортированные задания отдельно
     result = await db.execute(
         select(models.Task)
         .filter(models.Task.subject_id == subject_id)
@@ -90,6 +111,8 @@ async def get_subject(
     chat = result.scalar_one_or_none()
     chat_id = chat.id if chat else None
     
+    teacher_courses, student_courses = await get_user_courses(db, current_user.id)
+    
     return templates.TemplateResponse(
         "subject_detail.html",
         {
@@ -97,7 +120,10 @@ async def get_subject(
             "subject": subject,
             "tasks": tasks,
             "user": current_user,
-            "chat_id": chat_id
+            "chat_id": chat_id,
+            "teacher_courses": teacher_courses,
+            "student_courses": student_courses,
+            "current_subject": subject
         }
     )
   
@@ -222,7 +248,6 @@ async def get_subject_statistics(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Получаем все оценки студента по этому предмету
     result = await db.execute(
         select(models.Grade)
         .join(models.TaskUpload)
@@ -237,11 +262,9 @@ async def get_subject_statistics(
         )
     )
     grades = result.scalars().all()
-
-    # Вычисляем среднюю оценку
+    
     avg_grade = sum(grade.grade for grade in grades) / len(grades) if grades else 0
 
-    # Get subject data
     subject = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = subject.scalar_one_or_none()
     if not subject:

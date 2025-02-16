@@ -1,15 +1,9 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chat</title>
-  </head>
-  <body class="flex flex-col items-center justify-between h-screen"> -->
-{% extends "base.html" %} {% block content %}
-{% include "subjects_navbar.html" %}
+{% extends "base.html" %}
+{% block content %}
+
+
 <div class="max-h-[50vh] flex">
-  <div class="w-full h-[73vh] px-24 flex flex-col">
+  <div class="w-full h-[80vh] px-24 flex flex-col">
     <div
       id="messages"
       class="flex-1 w-full overflow-y-auto p-5 bg-white rounded-lg mb-4"
@@ -34,21 +28,27 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-  const path = window.location.pathname;
+  const pathParts = window.location.pathname.split("/");
+  const chatUsername = pathParts[pathParts.length - 1];
+
   let socket;
-  let chatId = path.split("/").pop();
   let currentUserId = null;
   let currentUsername = null;
 
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return match ? match[2] : null;
+  }
+  const token = getCookie("access_token");
 
   function connectWebSocket() {
-    socket = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${chatId}`);
+    socket = new WebSocket(`ws://127.0.0.1:8000/ws/user/chat/${chatUsername}`);
 
     socket.onopen = () => {
-      console.log("Connected to WebSocket");
+      console.log("Connected to Private Chat WebSocket");
     };
-
-    socket.onmessage = function (event) {
+    console.log(currentUserId)
+    socket.onmessage = (event) => {
       const messageData = JSON.parse(event.data);
       renderMessage(messageData, currentUserId);
     };
@@ -56,10 +56,12 @@
 
   async function fetchMessages() {
     try {
-      const response = await fetch(`/chats/${chatId}/messages`);
+      const response = await fetch(`/user/chat/${chatUsername}/messages`);
       const data = await response.json();
 
       currentUserId = data.user_id;
+      currentUsername = data.username;
+      console.log(currentUserId);
       const messages = data.messages;
       const messagesContainer = document.getElementById("messages");
 
@@ -74,6 +76,7 @@
       console.error("Error fetching messages:", error);
     }
   }
+
 
   function renderMessage(msg, userId) {
     const messagesContainer = document.getElementById("messages");
@@ -119,6 +122,7 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
+
   function sendMessage() {
     const messageInput = document.getElementById("messageInput");
     const message = messageInput.value.trim();
@@ -126,9 +130,7 @@
     if (!message) return;
 
     const messageData = {
-      chat_id: chatId,
-      sender_id: currentUserId,
-      content: message,
+      content: message
     };
 
     socket.send(JSON.stringify(messageData));
@@ -140,6 +142,5 @@
     connectWebSocket();
   };
 </script>
-<!-- </body>
-</html> -->
+
 {% endblock %}
