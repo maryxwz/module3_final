@@ -11,10 +11,10 @@ from database import init_db
 import asyncio
 
 
-
 app = FastAPI(debug=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 
 
 @asynccontextmanager

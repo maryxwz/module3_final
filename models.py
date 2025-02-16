@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime, ARRAY, CheckConstraint
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -10,8 +11,10 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    username = Column(String)
+    username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    avatar_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
     
     subjects_teaching = relationship("Subject", back_populates="teacher")

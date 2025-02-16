@@ -189,12 +189,66 @@
       .text-nowrap {
         white-space: nowrap;
       }
+
+      .profile-section {
+        cursor: pointer;
+      }
+      
+      .profile-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+      
+      .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .avatar-placeholder {
+        color: #6c757d;
+        font-size: 1.2rem;
+      }
+      
+      .profile-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        display: block;
+        margin-top: 4px;
+      }
+
+      .profile-avatar-large {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+
+      .avatar-placeholder-large {
+        color: #6c757d;
+        font-size: 2rem;
+      }
     </style>
   </head>
   <body class="{% if user %}has-sidebar{% endif %}">
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">
         {% if user %}
+          <div class="d-flex align-items-center">
+            <a href="#" class="btn btn-primary me-3" data-bs-toggle="modal" data-bs-target="#joinCourseModal">
+              Join Course
+            </a>
+          </div>
           <div class="d-flex align-items-center ms-auto">
             <form method="GET" action="{{ url_for('search_courses') }}" class="flex w-full max-h-12 max-w-md me-3">
               <div class="flex w-full border border-gray-800 rounded-lg overflow-hidden transition-all focus-within:ring-2 focus-within:ring-blue-500">
@@ -204,11 +258,17 @@
                 </button>
               </div>
             </form>
-            <div class="navbar-nav items-center">
-              <a class="nav-link me-3 text-nowrap" href="#" data-bs-toggle="modal" data-bs-target="#joinCourseModal">
-                Join Course
-              </a>
-              <a class="nav-link" href="/logout">Logout</a>
+            <div class="profile-section text-center">
+              <div class="profile-avatar" data-bs-toggle="modal" data-bs-target="#profileModal">
+                {% if user.avatar_url %}
+                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+                {% else %}
+                  <div class="avatar-placeholder">
+                    <i class="fas fa-user"></i>
+                  </div>
+                {% endif %}
+              </div>
+              <span class="profile-label">Profile</span>
             </div>
           </div>
         {% else %}
@@ -328,10 +388,130 @@
       style="position: fixed; top: 20px; right: 20px; z-index: 1050"
     ></div>
 
+    {% if user %}
+    <div class="modal fade" id="profileModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center">
+            <p class="email-display mb-4">{{ user.email }}</p>
+            
+            <div class="profile-avatar-large mb-3">
+              {% if user.avatar_url %}
+                <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+              {% else %}
+                <div class="avatar-placeholder-large">
+                  <i class="fas fa-user"></i>
+                </div>
+              {% endif %}
+            </div>
+            
+            <h5 class="username-display mb-4">{{ user.username }}</h5>
+            
+            <button class="btn btn-primary mb-3" onclick="showEditProfile()">
+              Edit profile
+            </button>
+            
+            <a href="/logout" class="btn btn-outline-danger d-block">Logout</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit profile</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editProfileForm" enctype="multipart/form-data">
+              <div class="mb-3 text-center">
+                <div class="profile-avatar-large mb-2">
+                  {% if user.avatar_url %}
+                    <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+                  {% else %}
+                    <div class="avatar-placeholder-large">
+                      <i class="fas fa-user"></i>
+                    </div>
+                  {% endif %}
+                </div>
+                <label class="btn btn-outline-primary btn-sm">
+                  Change Avatar
+                  <input type="file" name="avatar" accept="image/*" style="display: none;" onchange="previewAvatar(this)">
+                </label>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" name="email" value="{{ user.email }}" required>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-control" name="username" value="{{ user.username }}" required>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-control" name="current_password" required>
+                <small class="text-muted">Required to save changes</small>
+              </div>
+              
+              <div class="text-end">
+                <button type="button" class="btn btn-outline-primary me-2" onclick="showChangePassword()">
+                  Change Password
+                </button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Change Password</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="changePasswordForm">
+              <div class="mb-3">
+                <label>Current Password</label>
+                <input type="password" class="form-control" name="current_password" required>
+              </div>
+              
+              <div class="mb-3">
+                <label>New Password</label>
+                <input type="password" class="form-control" name="new_password" required>
+              </div>
+              
+              <div class="mb-3">
+                <label>Confirm New Password</label>
+                <input type="password" class="form-control" name="confirm_password" required>
+              </div>
+              
+              <button type="submit" class="btn btn-primary">Change Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     {% if user %}
       <script src="{{ url_for('static', path='/js/notifications.js') }}"></script>
     {% endif %}
+    <script src="{{ url_for('static', path='/js/profile.js') }}"></script>
     <script>
     // При загрузке страницы восстанавливаем состояние секций
     document.addEventListener('DOMContentLoaded', function() {
