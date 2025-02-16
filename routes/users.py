@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 import bcrypt
-from typing import Optional
+from typing import Optional, Dict
 import aiofiles
 import os
 from datetime import datetime
-from models import models
+import models
 from database import get_db
-from security import verify_password, get_password_hash, get_current_user
+from security import verify_password, get_password_hash, get_current_user_for_id
+import logging
+from fastapi.responses import RedirectResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,93 +21,137 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 @router.post("/api/profile/update")
 async def update_profile(
-    avatar: Optional[UploadFile] = File(None),
-    email: str = Form(...),
-    username: str = Form(...),
-    current_password: str = Form(...),
+    data: dict = Body(...),
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Проверяем пароль
-    if not verify_password(current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Invalid current password")
-    
-    # Проверяем уникальность email и username
-    if email != current_user.email:
-        existing_user = await db.execute(select(models.User).filter(models.User.email == email))
-        if existing_user.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Email already registered")
-    
-    if username != current_user.username:
-        existing_user = await db.execute(select(models.User).filter(models.User.username == username))
-        if existing_user.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Username already taken")
-    
-    # Обрабатываем аватар если он загружен
-    avatar_url = current_user.avatar_url
-    if avatar:
-        content = await avatar.read()
+    try:
+        username = data.get('username')
+        current_password = data.get('current_password')
+        update_data = {}
         
-        if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="File too large")
-        
-        file_extension = os.path.splitext(avatar.filename)[1].lower()
-        if file_extension not in ALLOWED_EXTENSIONS:
-            raise HTTPException(status_code=400, detail="Invalid file type")
-        
-        # Генерируем уникальное имя файла
-        new_filename = f"{current_user.id}_{datetime.now().timestamp()}{file_extension}"
-        file_path = os.path.join("avatars", new_filename)
-        
-        # Сохраняем файл
-        async with aiofiles.open(file_path, 'wb') as out_file:
-            await out_file.write(content)
+        # Проверяем пароль если меняется username
+        if username and username != current_user.username:
+            # Проверяем наличие пароля
+            if not current_password:
+                raise HTTPException(status_code=400, detail="Password required for changing username")
             
-        avatar_url = f"/avatars/{new_filename}"
+            # Проверяем правильность пароля
+            if not verify_password(current_password, current_user.hashed_password):
+                raise HTTPException(status_code=400, detail="Invalid password")
+            
+            # Проверяем доступность username
+            existing_user = await db.execute(
+                select(models.User).filter(models.User.username == username)
+            )
+            if existing_user.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Username already taken")
+            
+            update_data['username'] = username
+
+        if update_data:
+            # Обновляем данные пользователя
+            await db.execute(
+                update(models.User)
+                .where(models.User.id == current_user.id)
+                .values(**update_data)
+            )
+            await db.commit()
+            
+            # Получаем обновленные данные
+            updated_user = await db.execute(
+                select(models.User).filter(models.User.id == current_user.id)
+            )
+            updated_user = updated_user.scalar_one()
+            
+            return {
+                "username": updated_user.username,
+                "email": updated_user.email,
+                "avatar_url": updated_user.avatar_url
+            }
         
-        # Удаляем старый аватар если он существует
-        if current_user.avatar_url:
-            old_avatar_path = os.path.join(".", current_user.avatar_url.lstrip('/'))
-            if os.path.exists(old_avatar_path):
-                os.remove(old_avatar_path)
-    
-    # Обновляем профиль в базе данных
-    query = update(models.User).where(models.User.id == current_user.id).values(
-        email=email,
-        username=username,
-        avatar_url=avatar_url
-    )
-    await db.execute(query)
-    await db.commit()
-    
-    return {
-        "email": email,
-        "username": username,
-        "avatar_url": avatar_url
-    }
+        return {
+            "username": current_user.username,
+            "email": current_user.email,
+            "avatar_url": current_user.avatar_url
+        }
+            
+    except Exception as e:
+        logger.error(f"Error updating profile: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/profile/change-password")
 async def change_password(
     password_data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Проверяем текущий пароль
-    if not verify_password(password_data["current_password"], current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Invalid current password")
+    try:
+        if not verify_password(password_data['current_password'], current_user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        new_hashed_password = get_password_hash(password_data['new_password'])
+        
+        await db.execute(
+            update(models.User)
+            .where(models.User.id == current_user.id)
+            .values(hashed_password=new_hashed_password)
+        )
+        await db.commit()
+        
+        return {"message": "Password updated successfully"}
+            
+    except Exception as e:
+        logger.error(f"Error changing password: {str(e)}", exc_info=True)
+        await db.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/profile/update-username")
+async def update_username(
+    username: str = Form(...),
+    current_password: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    try:
+        # Проверяем пароль
+        if not verify_password(current_password, current_user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Проверяем доступность username
+        existing_user = await db.execute(
+            select(models.User).filter(
+                models.User.username == username,
+                models.User.id != current_user.id
+            )
+        )
+        if existing_user.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Username already taken")
+        
+        old_username = current_user.username
+        
+        # Обновляем только username в таблице users
+        await db.execute(
+            update(models.User)
+            .where(models.User.id == current_user.id)
+            .values(username=username)
+        )
+        
+        await db.commit()
+        
+        logger.info(f"Username updated successfully from {old_username} to {username}")
+        
+        # Перенаправляем на главную страницу
+        return RedirectResponse(url="/", status_code=303)
     
-    # Проверяем совпадение нового пароля
-    if password_data["new_password"] != password_data["confirm_password"]:
-        raise HTTPException(status_code=400, detail="New passwords don't match")
-    
-    # Хешируем новый пароль
-    hashed_password = get_password_hash(password_data["new_password"])
-    
-    # Обновляем пароль в базе данных
-    query = update(models.User).where(models.User.id == current_user.id).values(
-        hashed_password=hashed_password
-    )
-    await db.execute(query)
-    await db.commit()
-    
-    return {"message": "Password updated successfully"} 
+    except HTTPException as he:
+        await db.rollback()
+        logger.error(f"HTTP error while updating username: {str(he)}")
+        raise he
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error updating username: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) 

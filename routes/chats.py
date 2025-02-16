@@ -116,6 +116,7 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
                 message_data = json.loads(data) 
 
                 message_data['username'] = user
+                message_data['avatar_url'] = token.avatar_url
                 
 
                 new_message = Message(
@@ -205,6 +206,7 @@ async def websocket_private_chat(username: str, websocket: WebSocket, token=Depe
 
                 message_data["username"] = token.username
                 message_data["sender_id"] = current_user_id 
+                message_data["avatar_url"] = token.avatar_url
 
                 await manager.broadcast(chat_id, json.dumps(message_data))
             except asyncio.CancelledError:
@@ -302,6 +304,9 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
                     "username": username,  
                     "content": msg.content,
                     "created_at": msg.created_at,
+                    "avatar_url": (await db.execute(
+                        select(User.avatar_url).where(User.id == msg.sender_id)
+                    )).scalar_one_or_none()
                 }
                 for msg, username in messages
             ]
@@ -365,6 +370,9 @@ async def get_private_chat_messages(
                 "username": sender_username, 
                 "content": msg.content,
                 "created_at": msg.created_at,
+                "avatar_url": (await db.execute(
+                    select(User.avatar_url).where(User.id == msg.sender_id)
+                )).scalar_one_or_none()
             }
             for msg, sender_username in messages
         ]

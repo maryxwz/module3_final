@@ -10,9 +10,11 @@ from security import get_current_user, get_current_user_optional, get_current_us
 import uuid
 from typing import List
 from .chats import create_chat
+import logging
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 
 async def get_user_courses(db: AsyncSession, user_id: int):
@@ -329,3 +331,28 @@ async def disable_access_code(
     await db.commit()
     
     return {"message": "Access code disabled"}
+
+@router.get("/api/search")
+async def search_courses(
+    query: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    try:
+        # Получаем курсы пользователя
+        teacher_courses, student_courses = await get_user_courses(db, current_user.id)
+        
+        # Объединяем курсы и фильтруем по запросу
+        all_user_courses = teacher_courses + student_courses
+        filtered_courses = [
+            course for course in all_user_courses 
+            if query.lower() in course.title.lower()
+        ]
+        
+        # Убираем дубликаты
+        unique_courses = list({course.id: course for course in filtered_courses}.values())
+        
+        return [{"id": course.id, "name": course.title} for course in unique_courses]
+    except Exception as e:
+        logger.error(f"Error in search: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error performing search")

@@ -198,11 +198,10 @@
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: #e9ecef;
+        overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto;
       }
       
       .profile-avatar img {
@@ -227,16 +226,84 @@
         width: 100px;
         height: 100px;
         border-radius: 50%;
-        background: #e9ecef;
+        overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto;
+        background: #e9ecef;
+      }
+
+      .profile-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
 
       .avatar-placeholder-large {
         color: #6c757d;
         font-size: 2rem;
+      }
+
+      /* Стили для чата */
+      .chat-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-right: 10px;
+        flex-shrink: 0;
+      }
+
+      .chat-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .chat-message {
+        display: flex;
+        align-items: start;
+        margin-bottom: 15px;
+      }
+
+      .message-content {
+        background: #f8f9fa;
+        border-radius: 18px;
+        padding: 10px 15px;
+        max-width: 70%;
+      }
+
+      .message-sender {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 4px;
+      }
+
+      .message-text {
+        word-wrap: break-word;
+      }
+
+      .message-own {
+        flex-direction: row-reverse;
+      }
+
+      .message-own .message-content {
+        background: #007bff;
+        color: white;
+      }
+
+      .message-own .message-sender {
+        color: #dee2e6;
+      }
+
+      .chat-container {
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
       }
     </style>
   </head>
@@ -250,14 +317,26 @@
             </a>
           </div>
           <div class="d-flex align-items-center ms-auto">
-            <form method="GET" action="{{ url_for('search_courses') }}" class="flex w-full max-h-12 max-w-md me-3">
-              <div class="flex w-full border border-gray-800 rounded-lg overflow-hidden transition-all focus-within:ring-2 focus-within:ring-blue-500">
-                <input type="text" name="query" class="w-full p-3 focus:outline-none" placeholder="Search Courses" required/>
-                <button type="submit" class="px-4 border-gray-800 bg-gray-200 hover:bg-blue-500 hover:text-white transition-all focus:outline-none">
-                  Search
-                </button>
-              </div>
-            </form>
+            <div class="flex flex-row items-center flex-nowrap gap-8">
+                <form method="GET" 
+                      action="{{ url_for('search_courses') }}" 
+                      class="flex w-full max-h-12 max-w-md"
+                >
+                    <div class="flex w-full border border-gray-800 rounded-lg overflow-hidden transition-all focus-within:ring-2 focus-within:ring-blue-500">
+                        <input type="text" 
+                               name="query" 
+                               class="w-full p-3 focus:outline-none" 
+                               placeholder="Search Courses" 
+                               required
+                        />
+                        <button type="submit" 
+                                class="px-4 border-gray-800 bg-gray-200 hover:bg-blue-500 hover:text-white transition-all focus:outline-none"
+                        >
+                            Search
+                        </button>
+                    </div>
+                </form>
+            </div>
             <div class="profile-section text-center">
               <div class="profile-avatar" data-bs-toggle="modal" data-bs-target="#profileModal">
                 {% if user.avatar_url %}
@@ -392,80 +471,93 @@
     <div class="modal fade" id="profileModal">
       <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header border-0">
+          <div class="modal-header">
+            <h5 class="modal-title">Profile</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body text-center">
-            <p class="email-display mb-4">{{ user.email }}</p>
-            
-            <div class="profile-avatar-large mb-3">
-              {% if user.avatar_url %}
-                <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
-              {% else %}
-                <div class="avatar-placeholder-large">
-                  <i class="fas fa-user"></i>
-                </div>
-              {% endif %}
+            <!-- View Mode -->
+            <div id="profileViewMode">
+              <div class="profile-avatar-large mb-3">
+                {% if user.avatar_url %}
+                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+                {% else %}
+                  <div class="avatar-placeholder-large">
+                    <i class="fas fa-user"></i>
+                  </div>
+                {% endif %}
+              </div>
+              
+              <h5 class="username-display mb-2">{{ user.username }}</h5>
+              <p class="email-display text-muted mb-4">{{ user.email }}</p>
+              
+              <button class="btn btn-primary" onclick="switchToEditMode()">Edit Profile</button>
             </div>
-            
-            <h5 class="username-display mb-4">{{ user.username }}</h5>
-            
-            <button class="btn btn-primary mb-3" onclick="showEditProfile()">
-              Edit profile
-            </button>
-            
-            <a href="/logout" class="btn btn-outline-danger d-block">Logout</a>
+
+            <!-- Edit Mode -->
+            <div id="profileEditMode" style="display: none;">
+              <div class="profile-avatar-large mb-3 position-relative">
+                {% if user.avatar_url %}
+                  <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
+                {% else %}
+                  <div class="avatar-placeholder-large">
+                    <i class="fas fa-user"></i>
+                  </div>
+                {% endif %}
+                <label class="btn btn-sm btn-primary position-absolute bottom-0 start-50 translate-middle-x">
+                  <i class="fas fa-camera"></i>
+                  <input type="file" name="avatar" accept="image/*" style="display: none;" onchange="updateAvatar(this)">
+                </label>
+              </div>
+
+              <div class="mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <h5 class="username-display m-0">{{ user.username }}</h5>
+                  <button class="btn btn-sm btn-outline-primary" onclick="showUsernameChangeModal()">
+                    Change Username
+                  </button>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <p class="email-display m-0">{{ user.email }}</p>
+                  <button class="btn btn-sm btn-outline-primary" onclick="showEmailChangeModal()">
+                    Change Email
+                  </button>
+                </div>
+              </div>
+              
+              <button class="btn btn-outline-primary mb-3" onclick="showPasswordChangeModal()">
+                Change Password
+              </button>
+              
+              <div class="d-flex justify-content-center gap-2">
+                <button class="btn btn-secondary" onclick="switchToViewMode()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveChanges()">Save Changes</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Edit Profile Modal -->
-    <div class="modal fade" id="editProfileModal">
+    <!-- Модальные окна для изменения данных -->
+    <div class="modal fade" id="emailChangeModal">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Edit profile</h5>
+            <h5 class="modal-title">Change Email</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <form id="editProfileForm" enctype="multipart/form-data">
-              <div class="mb-3 text-center">
-                <div class="profile-avatar-large mb-2">
-                  {% if user.avatar_url %}
-                    <img src="{{ user.avatar_url }}" alt="Profile" class="rounded-circle">
-                  {% else %}
-                    <div class="avatar-placeholder-large">
-                      <i class="fas fa-user"></i>
-                    </div>
-                  {% endif %}
-                </div>
-                <label class="btn btn-outline-primary btn-sm">
-                  Change Avatar
-                  <input type="file" name="avatar" accept="image/*" style="display: none;" onchange="previewAvatar(this)">
-                </label>
-              </div>
-              
+            <form id="emailChangeForm">
               <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" name="email" value="{{ user.email }}" required>
+                <label class="form-label">New Email</label>
+                <input type="email" class="form-control" name="email" required>
               </div>
-              
-              <div class="mb-3">
-                <label class="form-label">Username</label>
-                <input type="text" class="form-control" name="username" value="{{ user.username }}" required>
-              </div>
-              
               <div class="mb-3">
                 <label class="form-label">Current Password</label>
                 <input type="password" class="form-control" name="current_password" required>
-                <small class="text-muted">Required to save changes</small>
               </div>
-              
-              <div class="text-end">
-                <button type="button" class="btn btn-outline-primary me-2" onclick="showChangePassword()">
-                  Change Password
-                </button>
+              <div class="text-center">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
               </div>
             </form>
@@ -474,8 +566,35 @@
       </div>
     </div>
 
-    <!-- Change Password Modal -->
-    <div class="modal fade" id="changePasswordModal">
+    <!-- Модальное окно для изменения username -->
+    <div class="modal fade" id="usernameChangeModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Change Username</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="usernameChangeForm" method="POST" action="/api/profile/update-username">
+              <div class="mb-3">
+                <label class="form-label">New Username</label>
+                <input type="text" class="form-control" name="username" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-control" name="current_password" required>
+              </div>
+              <div class="text-center">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно для изменения пароля -->
+    <div class="modal fade" id="passwordChangeModal">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
@@ -483,29 +602,30 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <form id="changePasswordForm">
+            <form id="passwordChangeForm">
               <div class="mb-3">
-                <label>Current Password</label>
+                <label class="form-label">Current Password</label>
                 <input type="password" class="form-control" name="current_password" required>
               </div>
-              
               <div class="mb-3">
-                <label>New Password</label>
+                <label class="form-label">New Password</label>
                 <input type="password" class="form-control" name="new_password" required>
               </div>
-              
               <div class="mb-3">
-                <label>Confirm New Password</label>
+                <label class="form-label">Confirm New Password</label>
                 <input type="password" class="form-control" name="confirm_password" required>
               </div>
-              
-              <button type="submit" class="btn btn-primary">Change Password</button>
+              <div class="text-center">
+                <button type="submit" class="btn btn-primary">Change Password</button>
+              </div>
             </form>
           </div>
         </div>
       </div>
     </div>
     {% endif %}
+
+    <div id="searchResults" class="search-results" style="display: none;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     {% if user %}
@@ -543,10 +663,49 @@
       // Сохраняем состояние в localStorage
       localStorage.setItem(id, content.classList.contains('expanded') ? 'expanded' : 'collapsed');
     }
+
+    document.getElementById('searchInput').addEventListener('input', async function(e) {
+        const query = e.target.value.trim();
+        const resultsContainer = document.getElementById('searchResults');
+        
+        if (query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+            const subjects = await response.json();
+            
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = '';
+            resultsContainer.className = 'search-results bg-white';
+            
+            if (subjects.length === 0) {
+                resultsContainer.innerHTML = '<div class="p-2 text-muted">Курсы не найдены</div>';
+                return;
+            }
+
+            subjects.forEach(subject => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item p-2 border-bottom';
+                const roleText = subject.role === 'teacher' ? 'Преподаватель' : 'Студент';
+                
+                div.innerHTML = `
+                    <a href="/subjects/${subject.id}" class="text-decoration-none">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-dark">${subject.title}</span>
+                            <small class="text-muted">${roleText}</small>
+                        </div>
+                    </a>
+                `;
+                resultsContainer.appendChild(div);
+            });
+        } catch (error) {
+            console.error('Error searching courses:', error);
+            resultsContainer.innerHTML = '<div class="p-2 text-danger">Ошибка при поиске</div>';
+        }
+    });
     </script>
   </body>
 </html>
-
-
-
-

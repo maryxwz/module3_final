@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
-from routes import auth, subjects, tasks, enrollments, notifications, chats, grades_statistic
+from routes import auth, subjects, tasks, enrollments, notifications, chats, grades_statistic, users
 from pathlib import Path
 from database import init_db
 
@@ -22,6 +22,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     yield
 
+app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(subjects.router)
 app.include_router(tasks.router)
