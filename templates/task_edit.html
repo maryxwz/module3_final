@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Task{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Edit Task</h2>
+                    <form method="POST" action="/tasks/edit/{{ task.id }}">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="title" 
+                                   name="title" 
+                                   value="{{ task.title }}" 
+                                   required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" 
+                                      id="description" 
+                                      name="description" 
+                                      rows="3" 
+                                      required>{{ task.description }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deadline" class="form-label">Deadline</label>
+                            <input type="datetime-local" 
+                                   class="form-control" 
+                                   id="deadline" 
+                                   name="deadline" 
+                                   value="{{ task.deadline.strftime('%Y-%m-%dT%H:%M') }}"
+                                   required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="max_grade" class="form-label">Max Grade</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="max_grade" 
+                                   name="max_grade" 
+                                   min="1" 
+                                   value="{{ task.max_grade }}" 
+                                   required>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="/subjects/{{ task.subject_id }}" 
+                               class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

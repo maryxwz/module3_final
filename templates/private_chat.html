@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+
+<div class="max-h-[50vh] flex">
+  <div class="w-full h-[80vh] px-24 flex flex-col">
+    <div
+      id="messages"
+      class="flex-1 w-full overflow-y-auto p-5 bg-white rounded-lg mb-4"
+    ></div>
+
+    <div class="w-full p-5 bg-white rounded-b-lg flex items-center">
+      <input
+        id="messageInput"
+        type="text"
+        placeholder="Type your message..."
+        class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        onclick="sendMessage()"
+        class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none"
+      >
+        Send
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  const pathParts = window.location.pathname.split("/");
+  const chatUsername = pathParts[pathParts.length - 1];
+
+  let socket;
+  let currentUserId = null;
+  let currentUsername = null;
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return match ? match[2] : null;
+  }
+  const token = getCookie("access_token");
+
+  function connectWebSocket() {
+    socket = new WebSocket(`ws://127.0.0.1:8000/ws/user/chat/${chatUsername}`);
+
+    socket.onopen = () => {
+      console.log("Connected to Private Chat WebSocket");
+    };
+    console.log(currentUserId)
+    socket.onmessage = (event) => {
+      const messageData = JSON.parse(event.data);
+      renderMessage(messageData, currentUserId);
+    };
+  }
+
+  async function fetchMessages() {
+    try {
+      const response = await fetch(`/user/chat/${chatUsername}/messages`);
+      const data = await response.json();
+
+      currentUserId = data.user_id;
+      currentUsername = data.username;
+      console.log(currentUserId);
+      const messages = data.messages;
+      const messagesContainer = document.getElementById("messages");
+
+      messagesContainer.innerHTML = "";
+
+      messages.forEach((msg) => {
+        renderMessage(msg, currentUserId);
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  }
+
+
+  function renderMessage(msg, userId) {
+    const messagesContainer = document.getElementById("messages");
+    const messageElement = document.createElement("div");
+    console.log(msg, userId);
+
+    const isMyMessage = msg.sender_id === userId;
+
+
+    messageElement.classList.add(
+      "message",
+      "mb-4",
+      "p-3",
+      "rounded-lg",
+      "max-w-lg",
+      "w-fit",
+      "flex",
+      "flex-col"
+    );
+
+    if (isMyMessage) {
+      messageElement.classList.add(
+        "bg-blue-500",
+        "text-white",
+        "self-end",
+        "rounded-bl-none"
+      );
+    } else {
+      messageElement.classList.add(
+        "bg-gray-200",
+        "text-black",
+        "self-start",
+        "rounded-bl-none"
+      );
+    }
+
+    messageElement.innerHTML = `
+      <strong class="font-semibold">${msg.username}</strong>
+      <span>${msg.content}</span>
+    `;
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+
+  function sendMessage() {
+    const messageInput = document.getElementById("messageInput");
+    const message = messageInput.value.trim();
+
+    if (!message) return;
+
+    const messageData = {
+      content: message
+    };
+
+    socket.send(JSON.stringify(messageData));
+    messageInput.value = "";
+  }
+
+  window.onload = async function () {
+    await fetchMessages();
+    connectWebSocket();
+  };
+</script>
+
+{% endblock %}

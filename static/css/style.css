@@ -65,4 +65,103 @@
 #accessCode {
     font-family: monospace;
     background-color: #f8f9fa;
-} 
+}
+
+.search-container {
+    margin-right: 35px;
+}
+
+.profile-settings-icon {
+    font-size: 26px;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.search-input {
+    min-width: 250px;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.search-result-item {
+    padding: 8px 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa;
+}
+
+
+.search-form {
+    margin-right: 1rem;
+}
+
+.search-form .input-group {
+    width: 300px;
+}
+
+.search-form .form-control {
+    border-right: none;
+}
+
+.search-form .btn {
+    border-color: #ced4da;
+    background-color: white;
+}
+
+.search-form .btn:hover {
+    background-color: #f8f9fa;
+}
+
+.profile-section {
+    cursor: pointer;
+    margin-left: 2rem;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+}
+
+.profile-label {
+    font-size: 1rem;
+    color: #495057;
+    display: block;
+    margin-top: 6px;
+}
+
+.avatar-placeholder {
+    color: #6c757d;
+    font-size: 2.5rem;
+}
+
+
+
