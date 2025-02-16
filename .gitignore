@@ -84,8 +84,7 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-migrations
-alembic.ini
+
 .idea
 .idea/vcs.xml
 .idea/misc.xml
