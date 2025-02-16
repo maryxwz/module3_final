@@ -92,69 +92,32 @@ async def create_task(
 
 @router.get("/task/{task_id}")
 async def get_task(
-    task_id: int,
     request: Request,
+    task_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Get task with subject info
     result = await db.execute(
         select(models.Task)
-        .options(joinedload(models.Task.subject))
-        .filter(models.Task.id == task_id)
+        .options(
+            selectinload(models.Task.subject),
+            selectinload(models.Task.uploads).selectinload(models.TaskUpload.student),
+            selectinload(models.Task.uploads).selectinload(models.TaskUpload.grade)
+        )
+        .where(models.Task.id == task_id)
     )
     task = result.scalar_one_or_none()
-    
+
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-
-    # Get user's upload if exists
-    result = await db.execute(
-        select(models.TaskUpload)
-        .options(joinedload(models.TaskUpload.grade))
-        .filter(
-            models.TaskUpload.task_id == task_id,
-            models.TaskUpload.student_id == current_user.id
-        )
-    )
-    my_upload = result.scalar_one_or_none()
-
-    # Get all uploads if user is teacher
-    uploads = []
-    if task.subject.teacher_id == current_user.id:
-        result = await db.execute(
-            select(models.TaskUpload)
-            .options(
-                joinedload(models.TaskUpload.student),
-                joinedload(models.TaskUpload.grade)
-            )
-            .filter(models.TaskUpload.task_id == task_id)
-            .order_by(models.TaskUpload.uploaded_at.desc())
-        )
-        uploads = result.scalars().all()
-
-    # Determine status
-    now = datetime.utcnow()
-    status = None
-    if my_upload:
-        if my_upload.status == "late":
-            status = "late"
-        else:
-            status = "uploaded"
-    elif now > task.deadline:
-        status = "overdue"
-    else:
-        status = "assigned"
 
     return templates.TemplateResponse(
         "task_detail.html",
         {
             "request": request,
             "task": task,
-            "my_upload": my_upload,
-            "uploads": uploads,
-            "status": status,
-            "user": current_user
+            "user": current_user,
+            "subject": task.subject
         }
     )
 
@@ -259,10 +222,10 @@ async def homework_page(request: Request, db: AsyncSession = Depends(get_db),
 
 @router.get("/edit/{task_id}")
 async def edit_task_form(
-        request: Request,
-        task_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: models.User = Depends(get_current_user_for_id)
+    task_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
 ):
     result = await db.execute(
         select(models.Task)
@@ -275,9 +238,16 @@ async def edit_task_form(
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.subject.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the teacher can edit tasks")
+        raise HTTPException(status_code=403, detail="Not authorized to edit this task")
 
-    return templates.TemplateResponse("edit_task.html", {"request": request, "task": task})
+    return templates.TemplateResponse(
+        "task_edit.html",
+        {
+            "request": request,
+            "task": task,
+            "user": current_user
+        }
+    )
 
 @router.post("/edit/{task_id}")
 async def update_task(
@@ -285,16 +255,16 @@ async def update_task(
     title: str = Form(...),
     description: str = Form(...),
     deadline: datetime = Form(...),
+    max_grade: int = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
     try:
-        stmt = (
+        result = await db.execute(
             select(models.Task)
             .options(selectinload(models.Task.subject))
             .where(models.Task.id == task_id)
         )
-        result = await db.execute(stmt)
         task = result.scalar_one_or_none()
 
         if not task:
@@ -306,41 +276,73 @@ async def update_task(
         task.title = title
         task.description = description
         task.deadline = deadline
+        task.max_grade = max_grade
 
-        db.add(task)
         await db.commit()
-
         return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
 
     except Exception as e:
         await db.rollback()
-        print(f"Error updating task: {str(e)}")
-        return RedirectResponse(
-            url=f"/tasks/edit/{task_id}",
-            status_code=303
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/delete/{task_id}")
-async def subject_delete(
-        task_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: models.User = Depends(get_current_user_for_id)
+@router.get("/delete/{task_id}")
+async def confirm_delete_task(
+    task_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
 ):
     result = await db.execute(
-        select(models.Task).options(selectinload(models.Task.subject)).filter(models.Task.id == task_id)
+        select(models.Task)
+        .options(selectinload(models.Task.subject))
+        .where(models.Task.id == task_id)
     )
     task = result.scalar_one_or_none()
 
     if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    if not task.subject or task.subject.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the teacher can delete tasks")
+    if task.subject.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 
-    await db.delete(task)
-    await db.commit()
+    return templates.TemplateResponse(
+        "task_delete.html",
+        {
+            "request": request,
+            "task": task,
+            "user": current_user
+        }
+    )
 
-    return RedirectResponse(url=f"/subjects/{task.subject_id}", status_code=303)
+@router.post("/delete/{task_id}")
+async def delete_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    try:
+        result = await db.execute(
+            select(models.Task)
+            .options(selectinload(models.Task.subject))
+            .where(models.Task.id == task_id)
+        )
+        task = result.scalar_one_or_none()
+
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        if task.subject.teacher_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+
+        subject_id = task.subject_id
+        await db.delete(task)
+        await db.commit()
+
+        return RedirectResponse(url=f"/subjects/{subject_id}", status_code=303)
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/task/{task_id}/upload")
 async def upload_solution(

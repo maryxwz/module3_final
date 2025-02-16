@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Task{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-4">Delete Task</h2>
+                    <p class="mb-4">Are you sure you want to delete task "{{ task.title }}"?</p>
+                    <p class="text-danger mb-4">This action cannot be undone!</p>
+                    
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="/subjects/{{ task.subject_id }}" 
+                           class="btn btn-secondary">Cancel</a>
+                        <form method="POST" action="/tasks/delete/{{ task.id }}">
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

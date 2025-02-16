@@ -61,23 +61,104 @@
                     <h5 class="mb-0">Tasks</h5>
                 </div>
                 <div class="card-body">
-                    <div class="grid grid-cols-1 gap-4">
-                        {% for item in tasks %}
-                        <div class="bg-white p-4 rounded-lg shadow-sm border hover:shadow-lg cursor-pointer mb-3" 
-                             onclick="window.location.href='/tasks/task/{{ item.id }}'">
-                            <h5 class="text-lg font-semibold">
-                                {{ item.title if item.title else 'Announcement' }}
-                            </h5>
-                            <p class="text-muted mb-2">
-                                {{ item.description if item.description else 'Homework Task' }}
-                            </p>
-                            <small class="text-muted">
-                                Deadline: {{ item.deadline.strftime('%Y-%m-%d %H:%M') if item.deadline }}
-                            </small>
-                        </div>  
+                    <div class="task-list">
+                        {% for task in tasks %}
+                        <div class="task-item p-4 mb-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-grow cursor-pointer" onclick="window.location.href='/tasks/task/{{ task.id }}'">
+                                    <h5 class="text-lg font-semibold mb-2">
+                                        {{ task.title if task.title else 'Announcement' }}
+                                    </h5>
+                                    <p class="text-gray-600 mb-2">
+                                        {{ task.description if task.description else 'Homework Task' }}
+                                    </p>
+                                    <small class="text-gray-500">
+                                        Deadline: {{ task.deadline.strftime('%Y-%m-%d %H:%M') if task.deadline }}
+                                    </small>
+                                </div>
+                                
+                                {% if subject.teacher_id == user.id %}
+                                <div class="relative">
+                                    <button onclick="toggleTaskMenu(event, '{{ task.id }}')" 
+                                            class="p-2 hover:bg-gray-100 rounded-full">
+                                        <i class="fas fa-ellipsis-h text-gray-400"></i>
+                                    </button>
+                                    
+                                    <div id="taskMenu{{ task.id }}" 
+                                         class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border">
+                                        <div class="py-1">
+                                            <button onclick="event.stopPropagation(); window.location.href='/tasks/edit/{{ task.id }}'" 
+                                                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700">
+                                                <i class="fas fa-edit mr-2"></i> Edit task
+                                            </button>
+                                            <button onclick="event.stopPropagation(); window.location.href='/tasks/delete/{{ task.id }}'" 
+                                                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
+                                                <i class="fas fa-trash mr-2"></i> Delete task
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования -->
+<div id="editTaskModal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Edit Task</h3>
+            <form id="editTaskForm" method="POST" class="mt-2">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input type="text" id="editTitle" name="title" class="w-full rounded-md border p-2" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="editDescription" name="description" rows="3" class="w-full rounded-md border p-2" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+                    <input type="datetime-local" id="editDeadline" name="deadline" class="w-full rounded-md border p-2" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Grade</label>
+                    <input type="number" id="editMaxGrade" name="max_grade" min="1" class="w-full rounded-md border p-2" required>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div id="deleteTaskModal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Delete Task</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500">Are you sure you want to delete this task? This action cannot be undone.</p>
+            </div>
+            <div class="mt-4 flex justify-center space-x-4">
+                <button onclick="closeDeleteModal()" 
+                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                    Cancel
+                </button>
+                <form id="deleteTaskForm" method="POST" class="inline">
+                    <button type="submit" 
+                            class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
+                        Delete
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -114,5 +195,84 @@
             alert("Помилка: " + data.detail);
         }
     }
+
+    function toggleTaskMenu(event, taskId) {
+        event.stopPropagation();
+        const menu = document.getElementById(`taskMenu${taskId}`);
+        const allMenus = document.querySelectorAll('[id^="taskMenu"]');
+        
+        allMenus.forEach(m => {
+            if (m.id !== `taskMenu${taskId}`) {
+                m.classList.add('hidden');
+            }
+        });
+        
+        menu.classList.toggle('hidden');
+    }
+
+    // Закрытие меню при клике вне его
+    document.addEventListener('click', function(event) {
+        const menus = document.querySelectorAll('[id^="taskMenu"]');
+        const isClickInsideMenu = Array.from(menus).some(menu => menu.contains(event.target));
+        const isClickOnButton = event.target.closest('button[onclick*="toggleTaskMenu"]');
+        
+        if (!isClickInsideMenu && !isClickOnButton) {
+            menus.forEach(menu => menu.classList.add('hidden'));
+        }
+    });
+
+    function openEditModal(taskId, title, description, deadline, maxGrade) {
+        event.preventDefault();
+        event.stopPropagation();
+        const modal = document.getElementById('editTaskModal');
+        const form = document.getElementById('editTaskForm');
+        
+        document.getElementById('editTitle').value = title;
+        document.getElementById('editDescription').value = description;
+        const formattedDate = deadline.replace(' ', 'T').slice(0, 16);
+        document.getElementById('editDeadline').value = formattedDate;
+        document.getElementById('editMaxGrade').value = maxGrade;
+        
+        form.action = `/tasks/edit/${taskId}`;
+        modal.classList.remove('hidden');
+        
+        // Закрываем меню с точками
+        const menus = document.querySelectorAll('[id^="taskMenu"]');
+        menus.forEach(menu => menu.classList.add('hidden'));
+    }
+
+    function closeEditModal() {
+        document.getElementById('editTaskModal').classList.add('hidden');
+    }
+
+    function openDeleteModal(taskId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const modal = document.getElementById('deleteTaskModal');
+        const form = document.getElementById('deleteTaskForm');
+        form.action = `/tasks/delete/${taskId}`;
+        modal.classList.remove('hidden');
+        
+        // Закрываем меню с точками
+        const menus = document.querySelectorAll('[id^="taskMenu"]');
+        menus.forEach(menu => menu.classList.add('hidden'));
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteTaskModal').classList.add('hidden');
+    }
+
+    // Закрытие модальных окон при клике вне их
+    window.onclick = function(event) {
+        const editModal = document.getElementById('editTaskModal');
+        const deleteModal = document.getElementById('deleteTaskModal');
+        
+        if (event.target === editModal) {
+            closeEditModal();
+        }
+        if (event.target === deleteModal) {
+            closeDeleteModal();
+        }
+    };
 </script>
 {% endblock %}
