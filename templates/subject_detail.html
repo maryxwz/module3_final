@@ -5,62 +5,68 @@
 {% include "subjects_navbar.html" %}
 
 <div class="container mt-3">
-    <div class="p-5 bg-blue-500 text-white rounded position-relative" style="height: 250px">
-        <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
-            {{ subject.title }}
-        </h1>
-        <p class="card-text">{{ subject.description }}</p>
-    </div>
-</div>
-
-<div class="container mt-4">
     <div class="row">
-        <div class="col-md-4">
-            {% if subject.teacher_id == user.id %}
-            <div class="card mb-3">
-                <div class="card-header">Access Code</div>
-                <div class="card-body">
-                    {% if subject.access_code %}
-                        <div class="input-group mb-2">
-                            <input type="text" class="form-control" value="{{ subject.access_code }}" id="accessCode" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="copyAccessCode()">
-                                <i class="fas fa-copy"></i> Copy Code
-                            </button>
-                        </div>
-                        <button class="btn btn-warning" onclick="updateAccessCode()">
-                            <i class="fas fa-sync"></i> Оновити код
-                        </button>
-                        <button class="btn btn-danger" onclick="disableAccessCode()">
-                            <i class="fas fa-ban"></i> Відключити код
-                        </button>
-                    {% else %}
-                        <p><strong>Код доступу вимкнено</strong></p>
-                        <button class="btn btn-success" onclick="updateAccessCode()">
-                            <i class="fas fa-plus"></i> Створити новий код
-                        </button>
-                    {% endif %}
+        {% if subject.teacher_id == user.id %}
+            <!-- Для учителя -->
+            <div class="col-md-4">
+                <div class="card mb-3">
+                    <div class="card-header">Access Code</div>
+                    <div class="card-body">
+                        {% if subject.access_code %}
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" value="{{ subject.access_code }}" id="accessCode" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyAccessCode()">
+                                    <i class="fas fa-copy"></i> Copy Code
+                                </button>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-warning btn-sm w-100" onclick="updateAccessCode()">
+                                    <i class="fas fa-sync"></i> Оновити код
+                                </button>
+                                <button class="btn btn-danger btn-sm w-100" onclick="disableAccessCode()">
+                                    <i class="fas fa-ban"></i> Відключити код
+                                </button>
+                            </div>
+                        {% else %}
+                            <p><strong>Код доступу вимкнено</strong></p>
+                            <div class="text-center">
+                                <button class="btn btn-success btn-sm w-100" onclick="updateAccessCode()">
+                                    <i class="fas fa-plus"></i> Створити новий код
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            {% endif %}
-
-            {% if subject.meet_link %}
-            <div class="card">
-                <div class="card-header">Google Meet</div>
-                <div class="card-body">
-                    <a href="{{ subject.meet_link }}" class="btn btn-primary w-100" target="_blank">
-                        <i class="fas fa-video"></i> Join Meeting
-                    </a>
+            <div class="col-md-8">
+                <div class="p-5 bg-blue-500 text-white rounded position-relative" style="height: 200px">
+                    <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
+                        {{ subject.title }}
+                    </h1>
+                    <p class="card-text">{{ subject.description }}</p>
                 </div>
             </div>
-            {% endif %}
-        </div>
-
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Tasks</h5>
+        {% else %}
+            <!-- Для ученика -->
+            <div class="col-12">
+                <div class="p-5 bg-blue-500 text-white rounded position-relative" style="height: 250px">
+                    <h1 class="text-2xl font-semibold position-absolute bottom-0 start-0 m-3">
+                        {{ subject.title }}
+                    </h1>
+                    <p class="card-text">{{ subject.description }}</p>
                 </div>
-                <div class="card-body">
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Задания -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header w-100">
+                    <h5 class="mb-0 w-100">Tasks</h5>
+                </div>
+                <div class="card-body pt-2">
                     <div class="task-list">
                         {% for task in tasks %}
                         <div class="task-item p-4 mb-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">

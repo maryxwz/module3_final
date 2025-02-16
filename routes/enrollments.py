@@ -139,15 +139,28 @@ async def settings_for_course(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user_for_id),
 ):
+    # Получаем курс
     result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = result.scalars().first()
 
     if not subject or subject.teacher_id != current_user.id:
         return RedirectResponse(url="/", status_code=303)
 
+    # Получаем чат курса
+    result = await db.execute(
+        select(models.Chat).filter(models.Chat.subject_id == subject_id)
+    )
+    chat = result.scalar_one_or_none()
+    chat_id = chat.id if chat else None
+
     return templates.TemplateResponse(
         "settings_course.html",
-        {"request": request, "subject": subject, "current_user": current_user}
+        {
+            "request": request, 
+            "subject": subject, 
+            "user": current_user,
+            "chat_id": chat_id
+        }
     )
 
 

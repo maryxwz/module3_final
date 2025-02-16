@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
-from sqlalchemy import select
+from sqlalchemy import select, text
 import models, schemas, security
 from database import get_db
 from security import get_current_user, get_current_user_optional, get_current_user_for_id
@@ -331,3 +331,99 @@ async def disable_access_code(
     await db.commit()
     
     return {"message": "Access code disabled"}
+
+@router.post("/{subject_id}/update")
+async def update_course(
+    subject_id: int,
+    title: str = Form(...),
+    description: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    # Проверяем существование курса
+    result = await db.execute(
+        select(models.Subject).filter(models.Subject.id == subject_id)
+    )
+    subject = result.scalar_one_or_none()
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+        
+    # Проверяем права доступа
+    if subject.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the teacher can update the course")
+    
+    # Обновляем данные
+    subject.title = title
+    subject.description = description
+    
+    await db.commit()
+    
+    return RedirectResponse(
+        url=f"/subjects/{subject_id}", 
+        status_code=303
+    )
+
+@router.post("/{subject_id}/delete")
+async def delete_course(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    # Проверяем существование курса
+    result = await db.execute(
+        select(models.Subject).filter(models.Subject.id == subject_id)
+    )
+    subject = result.scalar_one_or_none()
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+        
+    # Проверяем права доступа
+    if subject.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the teacher can delete the course")
+    
+    # Удаляем связанные записи
+    # 1. Удаляем все задания и ответы
+    await db.execute(
+        text("DELETE FROM tasks WHERE subject_id = :subject_id"),
+        {"subject_id": subject_id}
+    )
+    
+    # 2. Удаляем все сообщения чата
+    chat_result = await db.execute(
+        select(models.Chat).filter(models.Chat.subject_id == subject_id)
+    )
+    chat = chat_result.scalar_one_or_none()
+    if chat:
+        await db.execute(
+            text("DELETE FROM messages WHERE chat_id = :chat_id"),
+            {"chat_id": chat.id}
+        )
+        await db.execute(
+            text("DELETE FROM chat_participants WHERE chat_id = :chat_id"),
+            {"chat_id": chat.id}
+        )
+        await db.execute(
+            text("DELETE FROM chats WHERE subject_id = :subject_id"),
+            {"subject_id": subject_id}
+        )
+    
+    # 3. Удаляем все записи о зачислении
+    await db.execute(
+        text("DELETE FROM enrollments WHERE subject_id = :subject_id"),
+        {"subject_id": subject_id}
+    )
+    
+    # 4. Наконец удаляем сам курс
+    await db.execute(
+        text("DELETE FROM subjects WHERE id = :subject_id"),
+        {"subject_id": subject_id}
+    )
+    
+    await db.commit()
+    
+    return RedirectResponse(
+        url="/", 
+        status_code=303
+    )

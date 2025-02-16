@@ -54,6 +54,18 @@
           Create task
         </a>
       </li>
+      {% if subject.meet_link %}
+      <li class="nav-item">
+        <a
+          href="{{ subject.meet_link }}"
+          target="_blank"
+          class="btn btn-outline-dark d-flex align-items-center"
+          title="Join Google Meet"
+        >
+          <i class="fas fa-video"></i>
+        </a>
+      </li>
+      {% endif %}
       <li class="nav-item">
         <a
           href="{{ url_for('settings_for_course', subject_id=subject.id) }}"
