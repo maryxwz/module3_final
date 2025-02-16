@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, APIRouter, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, APIRouter, Form, Query
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 import calendar
 from datetime import datetime
@@ -20,9 +20,9 @@ def create_db():
         event TEXT NOT NULL
     )
     ''')
-
     connection.commit()
     connection.close()
+
 
 create_db()
 
@@ -30,12 +30,7 @@ create_db()
 def add_event(date: str, event: str):
     connection = sqlite3.connect('calendar.db')
     cursor = connection.cursor()
-
-    cursor.execute('''
-    INSERT INTO events (date, event)
-    VALUES (?, ?)
-    ''', (date, event))
-
+    cursor.execute("INSERT INTO events (date, event) VALUES (?, ?)", (date, event))
     connection.commit()
     connection.close()
 
@@ -43,10 +38,7 @@ def add_event(date: str, event: str):
 def delete_event(date: str, event: str):
     connection = sqlite3.connect('calendar.db')
     cursor = connection.cursor()
-
-    cursor.execute('''
-    DELETE FROM events
-    WHERE date = ? and event = ?''', (date, event))
+    cursor.execute("DELETE FROM events WHERE date = ? AND event = ?", (date, event))
     connection.commit()
     connection.close()
 
@@ -54,16 +46,10 @@ def delete_event(date: str, event: str):
 def get_events(year: int, month: int):
     connection = sqlite3.connect('calendar.db')
     cursor = connection.cursor()
-
     month_padded = f"{month:02d}"
     prefix = f"{year}-{month_padded}"
 
-    cursor.execute('''
-    SELECT date, event FROM events
-    WHERE date LIKE ?
-    ORDER BY date
-    ''', (prefix + '%',))
-
+    cursor.execute("SELECT date, event FROM events WHERE date LIKE ? ORDER BY date", (prefix + '%',))
     events = {}
     for row in cursor.fetchall():
         date, event = row
@@ -75,8 +61,8 @@ def get_events(year: int, month: int):
     return events
 
 
-def generate_calendar_html(year: int, month: int) -> str:
-    cal = calendar.Calendar(firstweekday=0)
+def generate_calendar_html(year: int, month: int, events: dict) -> str:
+    cal = calendar.Calendar(firstweekday=6)  # Початок тижня з понеділка
     month_days = cal.monthdays2calendar(year, month)
 
     calendar_html = "<tr>"
@@ -89,18 +75,24 @@ def generate_calendar_html(year: int, month: int) -> str:
         calendar_html += "<tr>"
         for day, _ in week:
             if day == 0:
-                calendar_html += "<td></td>"
+                calendar_html += "<td>&nbsp;</td>"
             else:
-                calendar_html += f"<td>{day}</td>"
+                date_str = f"{year}-{month:02d}-{day:02d}"
+                event_html = "".join(f"<div class='event'>{e}</div>" for e in events.get(date_str, []))
+                calendar_html += f"<td>{day}{event_html}</td>"
         calendar_html += "</tr>"
 
     return calendar_html
 
 
 @router.get("/calendar")
-async def calendar_view(request: Request, year: int = 2025, month: int = 1):
+async def calendar_view(
+    request: Request,
+    year: int = Query(default=datetime.today().year),
+    month: int = Query(default=datetime.today().month)
+):
     events = get_events(year, month)
-    calendar_html = generate_calendar_html(year, month)
+    calendar_html = generate_calendar_html(year, month, events)
     return templates.TemplateResponse("calendar.html", {
         "request": request,
         "year": year,
@@ -117,15 +109,11 @@ async def add_event_view(request: Request, event_date: str = Form(...), event_de
     return RedirectResponse(f"/calendar?year={year}&month={month}", status_code=303)
 
 
-
-
 @router.post("/calendar/delete-event")
 async def delete_event_view(event_date: str = Form(...), event_description: str = Form(...)):
     delete_event(event_date, event_description)
     year, month = map(int, event_date.split('-')[:2])
     return RedirectResponse(url=f"/calendar?year={year}&month={month}", status_code=303)
-
-
 
 
 app.include_router(router)

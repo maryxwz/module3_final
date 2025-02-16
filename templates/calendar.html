@@ -8,12 +8,12 @@
         body { font-family: Arial, sans-serif; background: #f9fafb; color: #333; margin: 0; padding: 0; }
         .container { max-width: 800px; margin: 40px auto; padding: 20px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; }
         h1, h2 { text-align: center; margin-bottom: 20px; }
+        .nav { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .nav a { text-decoration: none; background: #4caf50; color: white; padding: 10px; border-radius: 5px; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th, td { padding: 8px; text-align: center; border: 1px solid #ddd; }
         th { background-color: #4caf50; color: white; }
-        .event { background-color: #ffeb3b; padding: 3px 5px; margin: 2px 0; border-radius: 5px; display: block; position: relative; }
-        .delete-button { background: #f44336; color: white; border: none; padding: 2px 5px; border-radius: 5px; cursor: pointer; position: absolute; right: 5px; top: 2px; }
-        .delete-button:hover { background: #d32f2f; }
+        .event { background-color: #ffeb3b; padding: 3px 5px; margin: 2px 0; border-radius: 5px; display: block; }
         form { margin-bottom: 20px; text-align: center; }
         input, button { padding: 10px; margin: 5px; }
     </style>
@@ -21,6 +21,11 @@
 <body>
     <div class="container">
         <h1>Календар: {{ year }} / {{ month }}</h1>
+
+        <div class="nav">
+            <a href="/calendar?year={{ year if month > 1 else year-1 }}&month={{ month-1 if month > 1 else 12 }}">⬅ Попередній</a>
+            <a href="/calendar?year={{ year if month < 12 else year+1 }}&month={{ month+1 if month < 12 else 1 }}">Наступний ➡</a>
+        </div>
 
         <table>
             {{ calendar | safe }}
@@ -41,13 +46,11 @@
                         {% for event in event_list %}
                             <li class="event">
                                 {{ event }}
-                                <form action="/calendar/delete-event" method="post">
+                                <form action="/calendar/delete-event" method="post" style="display:inline;">
                                     <input type="hidden" name="event_date" value="{{ date }}">
                                     <input type="hidden" name="event_description" value="{{ event }}">
                                     <button type="submit">❌</button>
                                 </form>
-
-
                             </li>
                         {% endfor %}
                     </ul>
