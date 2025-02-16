@@ -3,7 +3,7 @@
 
 
 <div class="max-h-[50vh] flex">
-  <div class="w-full h-[80vh] px-24 flex flex-col">
+  <div class="w-full h-[73vh] px-24 flex flex-col">
     <div
       id="messages"
       class="flex-1 w-full overflow-y-auto p-5 bg-white rounded-lg mb-4"
@@ -78,45 +78,38 @@
   }
 
 
-  function renderMessage(msg, userId) {
+  function renderMessage(messageData, userId) {
     const messagesContainer = document.getElementById("messages");
     const messageElement = document.createElement("div");
-    console.log(msg, userId);
-
-    const isMyMessage = msg.sender_id === userId;
-
+    
+    const isMyMessage = messageData.sender_id === userId;
 
     messageElement.classList.add(
-      "message",
-      "mb-4",
-      "p-3",
-      "rounded-lg",
-      "max-w-lg",
-      "w-fit",
-      "flex",
-      "flex-col"
+        "message",
+        "mb-4",
+        "flex",
+        "items-start",
+        "gap-3",
+        isMyMessage ? "justify-end" : "justify-start"
     );
 
-    if (isMyMessage) {
-      messageElement.classList.add(
-        "bg-blue-500",
-        "text-white",
-        "self-end",
-        "rounded-bl-none"
-      );
-    } else {
-      messageElement.classList.add(
-        "bg-gray-200",
-        "text-black",
-        "self-start",
-        "rounded-bl-none"
-      );
-    }
+    const avatarHtml = messageData.avatar_url 
+        ? `<img src="${messageData.avatar_url}" alt="${messageData.username}" class="w-12 h-12 rounded-full object-cover flex-shrink-0">` 
+        : `<div class="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+             <i class="fas fa-user text-gray-600"></i>
+           </div>`;
 
-    messageElement.innerHTML = `
-      <strong class="font-semibold">${msg.username}</strong>
-      <span>${msg.content}</span>
+    const messageContent = `
+        <div class="${isMyMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'} 
+                    p-3 rounded-lg max-w-lg">
+            <div class="font-semibold text-sm mb-1">${messageData.username}</div>
+            <div>${messageData.content}</div>
+        </div>
     `;
+
+    messageElement.innerHTML = isMyMessage
+        ? `${messageContent}${avatarHtml}`
+        : `${avatarHtml}${messageContent}`;
 
     messagesContainer.appendChild(messageElement);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;

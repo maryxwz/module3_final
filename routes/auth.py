@@ -6,6 +6,7 @@ from sqlalchemy import select
 import models, schemas, security
 from database import get_db
 from security import get_current_user_optional
+from routes.notifications import send_notification
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -103,25 +104,34 @@ async def register(
     )
     db.add(db_user)
     await db.commit()
+    result = await db.execute(select(models.User).filter(models.User == True))
+    all = result.scalars().all()
+    for admin in all:
+        await send_notification(
+            user_id=str(admin.id),
+            from_user=str(db_user.id),
+            message=f'New user registered: {db_user.username} ({db_user.email})'
+        )
 
-    return RedirectResponse(url="/login", status_code=303)
+    return RedirectResponse(url="/login?message=Registration successful! Please log in.", status_code=303)
 
 
 @router.post("/login")
 async def login(
-    email: str = Form(...),
-    password: str = Form(...),
-    db: AsyncSession = Depends(get_db)
+        email: str = Form(...),
+        password: str = Form(...),
+        db: AsyncSession = Depends(get_db)
 ):
     user = await authenticate_user(email, password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            detail="Incorrect email or password"
         )
-    
+
     access_token = security.create_access_token(data={"sub": email})
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url="/?message=Login successful!", status_code=303)
+
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
@@ -130,6 +140,17 @@ async def login(
         expires=1800,
         samesite="lax"
     )
+
+    result = await db.execute(select(models.User).filter(models.User == True))
+    all_admins = result.scalars().all()
+
+    for admin in all_admins:
+        await send_notification(
+            user_id=str(admin.id),
+            from_user=str(user.id),
+            message=f'User {user.username} has logged in.'
+        )
+
     return response
 
 

@@ -1,10 +1,14 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from urllib import request
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, List
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
-
+templates = Jinja2Templates(directory="templates")
 
 class MessageText(BaseModel):
     id: int
@@ -64,4 +68,8 @@ async def send_notification(user_id: str, from_user: str, message: str):
             time_sent=datetime.now().strftime("%H:%M")
         )
     )
-    await manager.send_message(msg) 
+    await manager.send_message(msg)
+
+    redirect_url = f"/create?message={message}?request={Request}"
+
+    return RedirectResponse(url=redirect_url, status_code=303)

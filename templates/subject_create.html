@@ -8,21 +8,56 @@
         <div class="col-md-8">
             <h1 class="mb-4">Create New Subject</h1>
             
-            <form method="POST" action="/subjects/create">
+            <form action="/subjects/create" method="POST">
                 <div class="mb-3">
                     <label for="title" class="form-label">Subject Title</label>
                     <input type="text" class="form-control" id="title" name="title" required>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
                     <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">Create Subject</button>
                 <a href="/" class="btn btn-secondary">Cancel</a>
             </form>
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock content %}
+
+{% block extra_content %}
+<div id="notification" class="alert alert-success" role="alert"
+     style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 80%; text-align: center;">
+</div>
+{% endblock extra_content %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        function showNotification(message) {
+            if (message) {
+                const notification = document.getElementById("notification");
+                if (notification) {
+                    notification.textContent = message;
+                    notification.style.display = "block";
+
+                    setTimeout(function () {
+                        notification.style.display = "none";
+                    }, 5000);
+                } else {
+                    console.error("Element with id 'notification' not found.");
+                }
+            }
+        }
+        const message = "{{ message | safe }}";
+        console.log("Message from template:", message);
+
+        if (message.trim() !== "") {
+            showNotification(message);
+        }
+    });
+</script>
+{% endblock %}
+

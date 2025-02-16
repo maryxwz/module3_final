@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Календар</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f9fafb; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; padding: 20px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; }
+        h1, h2 { text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 8px; text-align: center; border: 1px solid #ddd; }
+        th { background-color: #4caf50; color: white; }
+        .event { background-color: #ffeb3b; padding: 3px 5px; margin: 2px 0; border-radius: 5px; display: block; position: relative; }
+        .delete-button { background: #f44336; color: white; border: none; padding: 2px 5px; border-radius: 5px; cursor: pointer; position: absolute; right: 5px; top: 2px; }
+        .delete-button:hover { background: #d32f2f; }
+        form { margin-bottom: 20px; text-align: center; }
+        input, button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Календар: {{ year }} / {{ month }}</h1>
+
+        <table>
+            {{ calendar | safe }}
+        </table>
+
+        <h2>Додати подію</h2>
+        <form action="/calendar/add-event" method="post">
+            <input type="date" name="event_date" required>
+            <input type="text" name="event_description" placeholder="Опис події" required>
+            <button type="submit">Додати</button>
+        </form>
+
+        <h2>Події цього місяця:</h2>
+        <ul>
+            {% for date, event_list in events.items() %}
+                <li><strong>{{ date }}</strong>:
+                    <ul>
+                        {% for event in event_list %}
+                            <li class="event">
+                                {{ event }}
+                                <form action="/calendar/delete-event" method="post">
+                                    <input type="hidden" name="event_date" value="{{ date }}">
+                                    <input type="hidden" name="event_description" value="{{ event }}">
+                                    <button type="submit">❌</button>
+                                </form>
+
+
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>

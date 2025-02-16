@@ -12,9 +12,18 @@ from typing import List
 from .chats import create_chat
 import logging
 
+from routes.notifications import send_notification
+
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
+
+users_ids = []
+async def get_all_users_id(db: AsyncSession = Depends(get_db)):
+    async with db.stream(select(models.User.id)) as result:
+        async for row in result:
+            users_ids.append(row)
+    return users_ids
 
 
 async def get_user_courses(db: AsyncSession, user_id: int):
@@ -72,8 +81,11 @@ async def home(
 
 
 @router.get("/create")
-async def create_subject_page(request: Request):
-    return templates.TemplateResponse("subject_create.html", {"request": request})
+async def create_subject_page(request: Request, message: str = None):
+    return templates.TemplateResponse("subject_create.html", {
+        "request": request,
+        "message": message if message else ""
+    })
 
 
 @router.get("/{subject_id}")
@@ -130,19 +142,20 @@ async def get_subject(
 
 @router.post("/create")
 async def create_subject(
-    background_tasks: BackgroundTasks,  
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user),
+    current_user: str = Depends(get_current_user)
 ):
-    print(f"Creating course with title: {title}") 
-    
+    print(f"Creating course with title: {title}")
+
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     db_subject = models.Subject(
         title=title,
         description=description,
@@ -152,8 +165,9 @@ async def create_subject(
     db.add(db_subject)
     await db.commit()
     await db.refresh(db_subject)
-    print(f"Created course with id: {db_subject.id}")  
-    
+    print(f"Created course with id: {db_subject.id}")
+
+    # Створення чату
     default_chat = models.Chat(
         is_group=True,
         name=f"{db_subject.title} Chat",
@@ -169,7 +183,19 @@ async def create_subject(
     await db.commit()
     print(f"Added user {user.id} as a participant of chat {default_chat.id}")
 
-    return RedirectResponse(url="/", status_code=303)
+    result = await db.execute(select(models.User))
+    all_users = result.scalars().all()
+
+    user_ids = [u.id for u in all_users]
+
+    for user_id in user_ids:
+        await send_notification(user_id=str(user_id), from_user=str(user.id),
+                                message=f'Created a new course: {db_subject.title}')
+
+    redirect_url = f"/subjects/create?message=Subject successfully created!"
+    return RedirectResponse(url=redirect_url, status_code=303)
+
+
 
 
 @router.get("/{subject_id}/participants")

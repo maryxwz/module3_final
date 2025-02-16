@@ -4,7 +4,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import init_db, recreate_database
-from routes import auth, subjects, tasks, enrollments, notifications, chats, grades_statistic, users
+from calendar_page import *
+from routes import auth, subjects, tasks, enrollments, notifications, chats, grades_statistic, users, calendar_page
 from pathlib import Path
 from database import init_db
 
@@ -29,6 +30,7 @@ app.include_router(tasks.router)
 app.include_router(enrollments.router)
 app.include_router(notifications.router)
 app.include_router(chats.router)
+app.include_router(calendar_page.router)
 app.include_router(grades_statistic.router)
 
 
