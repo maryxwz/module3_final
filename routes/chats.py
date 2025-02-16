@@ -98,7 +98,6 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
 
         user_id = token.id
         
-        # Проверяем, является ли пользователь учителем предмета
         chat_query = await db.execute(
             select(Chat).filter_by(id=chat_id)
         )
@@ -115,7 +114,6 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
         
         is_teacher = subject and subject.teacher_id == user_id
         
-        # Проверяем, является ли пользователь студентом предмета
         if not is_teacher:
             enrollment_query = await db.execute(
                 select(Enrollment).filter_by(
@@ -163,7 +161,6 @@ async def websocket_chat(chat_id: int, websocket: WebSocket, token = Depends(get
         raise WebSocketDisconnect(f"Unexpected error: {e}")
 
 
-# FOR PRIVATE
 @router.websocket("/ws/user/chat/{username}")
 async def websocket_private_chat(username: str, websocket: WebSocket, token=Depends(get_current_user_for_id), db: AsyncSession = Depends(get_db)):
     chat_id = None 
@@ -244,11 +241,6 @@ async def websocket_private_chat(username: str, websocket: WebSocket, token=Depe
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
 
     
-
-
-
-
-#CREATE AND GET ALL CHATS
 @router.get("/chats/")
 async def get_user_chats(user_id: int, db: AsyncSession = Depends(get_db)):
     try:
@@ -288,9 +280,6 @@ async def create_chat(
 
 
 
-
-"""GET CHAT MESSAGES"""
-# FOR GROUP
 @router.get("/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), token = Depends(get_current_user_for_id)):
     try:
@@ -313,7 +302,6 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
         )
         subject = subject_query.scalar_one_or_none()
         
-        # Проверяем права доступа
         is_teacher = subject and subject.teacher_id == user_id
         
         if not is_teacher:
@@ -328,7 +316,6 @@ async def get_chat_messages(chat_id: int, db: AsyncSession = Depends(get_db), to
             if not is_student:
                 raise HTTPException(status_code=403, detail="Access denied")
 
-        # Получаем все сообщения чата
         result = await db.execute(
             select(Message, User.username, User.avatar_url)
             .join(User, User.id == Message.sender_id)

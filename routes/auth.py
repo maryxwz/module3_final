@@ -35,7 +35,6 @@ async def index(
         user = result.scalar_one_or_none()
         
         if user:
-            # Get teacher courses
             teacher_result = await db.execute(
                 select(models.Subject)
                 .filter(models.Subject.teacher_id == user.id)
@@ -43,7 +42,6 @@ async def index(
             )
             teacher_courses = teacher_result.scalars().all()
 
-            # Get student courses
             student_result = await db.execute(
                 select(models.Subject)
                 .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
@@ -52,7 +50,6 @@ async def index(
             )
             student_courses = student_result.scalars().all()
 
-            # Get all subjects for the main content
             result = await db.execute(
                 select(models.Subject).where(
                     (models.Subject.teacher_id == user.id) |

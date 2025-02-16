@@ -85,7 +85,6 @@ async def search_courses(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Получаем курсы где пользователь преподаватель
     teacher_result = await db.execute(
         select(models.Subject)
         .filter(models.Subject.teacher_id == current_user.id)
@@ -93,7 +92,6 @@ async def search_courses(
     )
     teacher_courses = teacher_result.scalars().all()
 
-    # Получаем курсы где пользователь студент
     student_result = await db.execute(
         select(models.Subject)
         .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
@@ -102,7 +100,6 @@ async def search_courses(
     )
     student_courses = student_result.scalars().all()
 
-    # Поиск по всем курсам пользователя
     result = await db.execute(
         select(models.Subject).where(
             and_(
@@ -139,14 +136,12 @@ async def settings_for_course(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user_for_id),
 ):
-    # Получаем курс
     result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = result.scalars().first()
 
     if not subject or subject.teacher_id != current_user.id:
         return RedirectResponse(url="/", status_code=303)
 
-    # Получаем чат курса
     result = await db.execute(
         select(models.Chat).filter(models.Chat.subject_id == subject_id)
     )

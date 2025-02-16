@@ -42,7 +42,6 @@ async def home(
     current_user: models.User = Depends(get_current_user_optional)
 ):
     if current_user:
-        # Get teacher courses
         teacher_result = await db.execute(
             select(models.Subject)
             .filter(models.Subject.teacher_id == current_user.id)
@@ -50,7 +49,6 @@ async def home(
         )
         teacher_courses = teacher_result.scalars().all()
 
-        # Get student courses
         student_result = await db.execute(
             select(models.Subject)
             .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
@@ -172,8 +170,6 @@ async def create_subject(
     print(f"Added user {user.id} as a participant of chat {default_chat.id}")
 
     return RedirectResponse(url="/", status_code=303)
-
-
 
 
 @router.get("/{subject_id}/participants")
@@ -340,7 +336,6 @@ async def update_course(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Проверяем существование курса
     result = await db.execute(
         select(models.Subject).filter(models.Subject.id == subject_id)
     )
@@ -349,11 +344,9 @@ async def update_course(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
         
-    # Проверяем права доступа
     if subject.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the teacher can update the course")
     
-    # Обновляем данные
     subject.title = title
     subject.description = description
     
@@ -370,7 +363,6 @@ async def delete_course(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Проверяем существование курса
     result = await db.execute(
         select(models.Subject).filter(models.Subject.id == subject_id)
     )
@@ -379,18 +371,14 @@ async def delete_course(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
         
-    # Проверяем права доступа
     if subject.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the teacher can delete the course")
     
-    # Удаляем связанные записи
-    # 1. Удаляем все задания и ответы
     await db.execute(
         text("DELETE FROM tasks WHERE subject_id = :subject_id"),
         {"subject_id": subject_id}
     )
     
-    # 2. Удаляем все сообщения чата
     chat_result = await db.execute(
         select(models.Chat).filter(models.Chat.subject_id == subject_id)
     )
@@ -409,13 +397,11 @@ async def delete_course(
             {"subject_id": subject_id}
         )
     
-    # 3. Удаляем все записи о зачислении
     await db.execute(
         text("DELETE FROM enrollments WHERE subject_id = :subject_id"),
         {"subject_id": subject_id}
     )
     
-    # 4. Наконец удаляем сам курс
     await db.execute(
         text("DELETE FROM subjects WHERE id = :subject_id"),
         {"subject_id": subject_id}

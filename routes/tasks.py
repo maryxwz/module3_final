@@ -352,7 +352,6 @@ async def upload_solution(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Get the task
     result = await db.execute(
         select(models.Task).filter(models.Task.id == task_id)
     )
@@ -361,7 +360,6 @@ async def upload_solution(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # Check if user already has an upload
     result = await db.execute(
         select(models.TaskUpload)
         .filter(
@@ -371,7 +369,6 @@ async def upload_solution(
     )
     existing_upload = result.scalar_one_or_none()
     
-    # Determine status based on deadline
     now = datetime.utcnow()
     if now <= task.deadline:
         status = "uploaded"
@@ -382,11 +379,9 @@ async def upload_solution(
     if files:
         for file in files:
             if file.filename:
-                # Create directory for user if it doesn't exist
                 user_upload_dir = UPLOAD_DIR / str(current_user.id)
                 user_upload_dir.mkdir(exist_ok=True)
                 
-                # Save file
                 file_path = user_upload_dir / file.filename
                 with file_path.open("wb") as buffer:
                     shutil.copyfileobj(file.file, buffer)
@@ -394,13 +389,11 @@ async def upload_solution(
                 saved_files.append(f"{current_user.id}/{file.filename}")
     
     if existing_upload:
-        # Update existing upload
         existing_upload.content = content
         existing_upload.files = saved_files if saved_files else existing_upload.files
         existing_upload.status = status
         existing_upload.updated_at = now
     else:
-        # Create new upload
         upload = models.TaskUpload(
             task_id=task_id,
             student_id=current_user.id,

@@ -24,7 +24,6 @@ function showNotification(message, type) {
     setTimeout(() => notification.remove(), 5000);
 }
 
-// Показываем поле пароля только при изменении email или username
 document.querySelectorAll('#editProfileForm input[name="email"], #editProfileForm input[name="username"]')
 .forEach(input => {
     input.addEventListener('input', function() {
@@ -46,7 +45,6 @@ document.getElementById('editProfileForm').addEventListener('submit', async func
     
     const formData = new FormData(this);
     
-    // Удаляем пустые поля
     if (!formData.get('email')) formData.delete('email');
     if (!formData.get('username')) formData.delete('username');
     if (!formData.get('current_password')) formData.delete('current_password');
@@ -61,7 +59,6 @@ document.getElementById('editProfileForm').addEventListener('submit', async func
         const data = await response.json();
         
         if (response.ok) {
-            // Обновляем UI
             if (data.avatar_url) {
                 document.querySelectorAll('.profile-avatar img, .profile-avatar-large img').forEach(img => {
                     img.setAttribute('src', data.avatar_url);
@@ -70,7 +67,6 @@ document.getElementById('editProfileForm').addEventListener('submit', async func
             if (data.email) document.querySelector('.email-display').textContent = data.email;
             if (data.username) document.querySelector('.username-display').textContent = data.username;
             
-            // Закрываем модальное окно
             bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
             showNotification('Profile updated successfully', 'success');
         } else {
@@ -158,17 +154,14 @@ async function updateAvatar(input) {
             const data = await response.json();
             
             if (data.success) {
-                // Обновляем все аватары на странице
                 document.querySelectorAll('img[data-user-avatar="' + data.user_id + '"]').forEach(img => {
                     img.src = data.avatar_url;
                 });
                 
-                // Обновляем аватары в профиле
                 document.querySelectorAll('.profile-avatar img, .profile-avatar-large img').forEach(img => {
                     img.src = data.avatar_url;
                 });
                 
-                // Скрываем плейсхолдеры
                 document.querySelectorAll('.avatar-placeholder, .avatar-placeholder-large').forEach(placeholder => {
                     placeholder.style.display = 'none';
                 });
@@ -184,14 +177,12 @@ async function updateAvatar(input) {
     }
 }
 
-// Функции для показа модальных окон
 function showEmailChangeModal() {
     bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
     const emailModal = new bootstrap.Modal(document.getElementById('emailChangeModal'));
     emailModal.show();
 }
 
-// Обработчики форм
 document.getElementById('emailChangeForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -205,15 +196,12 @@ document.getElementById('emailChangeForm').addEventListener('submit', async func
         const data = await response.json();
         
         if (response.ok) {
-            // Обновляем email везде на странице
             document.querySelectorAll('.email-display').forEach(el => {
                 el.textContent = data.email;
             });
             
-            // Закрываем модальное окно изменения email
             bootstrap.Modal.getInstance(document.getElementById('emailChangeModal')).hide();
             
-            // Показываем основное модальное окно профиля
             const profileModal = new bootstrap.Modal(document.getElementById('profileModal'));
             profileModal.show();
             
@@ -228,7 +216,6 @@ document.getElementById('emailChangeForm').addEventListener('submit', async func
     }
 });
 
-// Обработчик формы изменения username
 document.getElementById('usernameChangeForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -242,12 +229,10 @@ document.getElementById('usernameChangeForm').addEventListener('submit', functio
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Обновляем имя пользователя на странице
             document.querySelectorAll('.username-display').forEach(el => {
                 el.textContent = data.username;
             });
             
-            // Закрываем модальное окно
             bootstrap.Modal.getInstance(document.getElementById('usernameChangeModal')).hide();
             showNotification('Username updated successfully', 'success');
             form.reset();
@@ -260,7 +245,6 @@ document.getElementById('usernameChangeForm').addEventListener('submit', functio
     });
 });
 
-// Обработчик формы изменения пароля
 document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -307,7 +291,6 @@ function showPasswordChangeModal() {
     passwordModal.show();
 }
 
-// Аналогичные обработчики для других форм 
 
 function switchToEditMode() {
     document.getElementById('profileViewMode').style.display = 'none';
@@ -320,7 +303,6 @@ function switchToViewMode() {
 }
 
 function saveChanges() {
-    // Если есть несохраненные изменения, сохраняем их
     switchToViewMode();
     showNotification('Profile updated successfully', 'success');
 } 

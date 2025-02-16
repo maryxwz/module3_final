@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif'}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_FILE_SIZE = 5 * 1024 * 1024  
 
 @router.post("/api/profile/update")
 async def update_profile(
@@ -29,24 +29,19 @@ async def update_profile(
         form = await request.form()
         data = dict(form)
         
-        # Обработка аватара
         if 'avatar' in data and isinstance(data['avatar'], UploadFile):
             avatar = data['avatar']
             if avatar.filename:
-                # Проверяем расширение файла
                 file_ext = os.path.splitext(avatar.filename)[1].lower()
                 if file_ext not in ALLOWED_EXTENSIONS:
                     raise HTTPException(status_code=400, detail="Invalid file type")
                 
-                # Создаем директорию, если её нет
                 os.makedirs("avatars", exist_ok=True)
                 
-                # Генерируем уникальное имя файла с timestamp
                 timestamp = int(datetime.now().timestamp())
                 filename = f"{current_user.id}_{timestamp}{file_ext}"
                 file_location = f"avatars/{filename}"
                 
-                # Сохраняем файл
                 try:
                     content = await avatar.read()
                     if len(content) > MAX_FILE_SIZE:
@@ -55,9 +50,8 @@ async def update_profile(
                     async with aiofiles.open(file_location, 'wb') as out_file:
                         await out_file.write(content)
                     
-                    print(f"File saved to: {file_location}")  # Отладочный вывод
+                    print(f"File saved to: {file_location}")  
                     
-                    # Обновляем путь к аватару в БД
                     avatar_url = f"/avatars/{filename}"
                     await db.execute(
                         update(models.User)
@@ -66,7 +60,6 @@ async def update_profile(
                     )
                     await db.commit()
                     
-                    # Получаем обновленные данные
                     result = await db.execute(
                         select(models.User).filter(models.User.id == current_user.id)
                     )
@@ -102,14 +95,11 @@ async def change_password(
     current_user: models.User = Depends(get_current_user_for_id)
 ):
     try:
-        # Проверяем текущий пароль
         if not verify_password(current_password, current_user.hashed_password):
             raise HTTPException(status_code=400, detail="Current password is incorrect")
         
-        # Хешируем новый пароль
         new_hashed_password = get_password_hash(new_password)
         
-        # Обновляем пароль в БД
         await db.execute(
             update(models.User)
             .where(models.User.id == current_user.id)
@@ -120,7 +110,6 @@ async def change_password(
         
         logger.info(f"Password updated successfully for user {current_user.username}")
         
-        # Перенаправляем на главную страницу
         return RedirectResponse(url="/", status_code=303)
             
     except HTTPException as he:
@@ -140,11 +129,9 @@ async def update_username(
     current_user: models.User = Depends(get_current_user_for_id)
 ):
     try:
-        # Проверяем пароль
         if not verify_password(current_password, current_user.hashed_password):
             raise HTTPException(status_code=400, detail="Current password is incorrect")
         
-        # Проверяем доступность username
         existing_user = await db.execute(
             select(models.User).filter(
                 models.User.username == username,
@@ -156,7 +143,6 @@ async def update_username(
         
         old_username = current_user.username
         
-        # Обновляем только username в таблице users
         await db.execute(
             update(models.User)
             .where(models.User.id == current_user.id)
@@ -167,7 +153,6 @@ async def update_username(
         
         logger.info(f"Username updated successfully from {old_username} to {username}")
         
-        # Перенаправляем на главную страницу
         return RedirectResponse(url="/", status_code=303)
     
     except HTTPException as he:
@@ -187,13 +172,11 @@ async def update_email(
     current_user: models.User = Depends(get_current_user_for_id)
 ):
     try:
-        # Проверяем пароль
         if not verify_password(current_password, current_user.hashed_password):
             raise HTTPException(status_code=400, detail="Current password is incorrect")
         
         old_email = current_user.email
         
-        # Обновляем email в таблице users
         await db.execute(
             update(models.User)
             .where(models.User.id == current_user.id)
@@ -204,7 +187,6 @@ async def update_email(
         
         logger.info(f"Email updated successfully from {old_email} to {email}")
         
-        # Перенаправляем на главную страницу
         return RedirectResponse(url="/", status_code=303)
     
     except HTTPException as he:
@@ -224,20 +206,16 @@ async def update_avatar(
 ):
     try:
         if avatar.filename:
-            # Проверяем расширение файла
             file_ext = os.path.splitext(avatar.filename)[1].lower()
             if file_ext not in ALLOWED_EXTENSIONS:
                 raise HTTPException(status_code=400, detail="Invalid file type")
             
-            # Создаем директорию, если её нет
             os.makedirs("avatars", exist_ok=True)
             
-            # Генерируем уникальное имя файла с timestamp
             timestamp = int(datetime.now().timestamp())
             filename = f"{current_user.id}_{timestamp}{file_ext}"
             file_location = f"avatars/{filename}"
             
-            # Сохраняем файл
             content = await avatar.read()
             if len(content) > MAX_FILE_SIZE:
                 raise HTTPException(status_code=400, detail="File too large")
@@ -245,7 +223,6 @@ async def update_avatar(
             async with aiofiles.open(file_location, 'wb') as out_file:
                 await out_file.write(content)
             
-            # Обновляем путь к аватару в БД
             avatar_url = f"/avatars/{filename}"
             await db.execute(
                 update(models.User)
@@ -254,7 +231,6 @@ async def update_avatar(
             )
             await db.commit()
             
-            # Получаем обновленные данные
             result = await db.execute(
                 select(models.User).filter(models.User.id == current_user.id)
             )

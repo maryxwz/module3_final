@@ -113,20 +113,17 @@ async def get_current_user_ws(
     db: AsyncSession
 ) -> User:
     try:
-        # Получаем токен из параметров запроса WebSocket
         token = websocket.query_params.get("token")
         if not token:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return None
             
-        # Декодируем токен
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         if user_id is None:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return None
             
-        # Получаем пользователя из БД
         result = await db.execute(
             select(User).filter(User.id == user_id)
         )

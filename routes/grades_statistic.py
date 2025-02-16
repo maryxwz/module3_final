@@ -19,7 +19,6 @@ async def get_statistics(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Получаем все оценки студента по этому предмету
     result = await db.execute(
         select(models.Grade)
         .join(models.TaskUpload)
@@ -35,16 +34,13 @@ async def get_statistics(
     )
     grades = result.scalars().all()
 
-    # Вычисляем среднюю оценку
     avg_grade = sum(grade.grade for grade in grades) / len(grades) if grades else 0
 
-    # Get subject data
     subject = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
     subject = subject.scalar_one_or_none()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
-    # Добавляем подготовку данных для графика
     grades_data = [
         {
             "date": grade.created_at.strftime("%Y-%m-%d"),
@@ -60,7 +56,7 @@ async def get_statistics(
         {
             "request": request,
             "grades": grades,
-            "grades_data": grades_data,  # Добавляем данные для графика
+            "grades_data": grades_data,  
             "avg_grade": round(avg_grade, 2),
             "subject_title": subject.title,
             "user": current_user
@@ -74,7 +70,6 @@ async def save_grade(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_for_id)
 ):
-    # Изменяем запрос, чтобы загрузить все необходимые связанные данные
     result = await db.execute(
         select(models.TaskUpload)
         .options(
@@ -88,7 +83,6 @@ async def save_grade(
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
 
-    # Проверяем, является ли текущий пользователь учителем этого предмета
     if upload.task.subject.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only teacher can grade uploads")
 
@@ -98,17 +92,14 @@ async def save_grade(
             detail=f"Grade must be between 0 and {upload.task.max_grade}"
         )
 
-    # Проверяем существование оценки
     result = await db.execute(
         select(models.Grade).where(models.Grade.task_upload_id == upload_id)
     )
     existing_grade = result.scalar_one_or_none()
 
     if existing_grade:
-        # Обновляем существующую оценку
         existing_grade.grade = grade
     else:
-        # Создаем новую оценку
         new_grade = models.Grade(
             task_upload_id=upload_id,
             grade=grade

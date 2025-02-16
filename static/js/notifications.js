@@ -36,7 +36,7 @@ class NotificationManager {
         
         document.getElementById('notifications-container').appendChild(notification);
         const toast = new bootstrap.Toast(notification, {
-            delay: 7000 // Показывать 7 секунд
+            delay: 7000 
         });
         toast.show();
     }

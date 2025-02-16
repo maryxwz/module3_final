@@ -216,7 +216,6 @@
         menu.classList.toggle('hidden');
     }
 
-    // Закрытие меню при клике вне его
     document.addEventListener('click', function(event) {
         const menus = document.querySelectorAll('[id^="taskMenu"]');
         const isClickInsideMenu = Array.from(menus).some(menu => menu.contains(event.target));
@@ -268,7 +267,6 @@
         document.getElementById('deleteTaskModal').classList.add('hidden');
     }
 
-    // Закрытие модальных окон при клике вне их
     window.onclick = function(event) {
         const editModal = document.getElementById('editTaskModal');
         const deleteModal = document.getElementById('deleteTaskModal');
