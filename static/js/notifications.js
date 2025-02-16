@@ -5,7 +5,7 @@ class NotificationManager {
     }
 
     connect() {
-        this.socket = new WebSocket(`ws://localhost:8000/notifications/ws/${this.userId}`);
+        this.socket = new WebSocket(`ws://127.0.0.1:8000/notifications/ws/${this.userId}`);
         
         this.socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
@@ -36,7 +36,7 @@ class NotificationManager {
         
         document.getElementById('notifications-container').appendChild(notification);
         const toast = new bootstrap.Toast(notification, {
-            delay: 7000 // Показывать 7 секунд
+            delay: 7000 
         });
         toast.show();
     }

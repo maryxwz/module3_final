@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 import models
 from database import get_db
 from routes.tasks import templates
-from security import get_current_user
+from security import get_current_user, get_current_user_for_id
 from fastapi.responses import RedirectResponse
 from typing import List
 import schemas
+
 
 router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 
@@ -20,10 +21,11 @@ async def enroll_in_subject(
 ):
     result = await db.execute(select(models.User).filter(models.User.email == current_user))
     user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(select(models.Subject).filter(models.Subject.access_code == access_code))
     subject = result.scalar_one_or_none()
-
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
@@ -38,9 +40,25 @@ async def enroll_in_subject(
 
     db_enrollment = models.Enrollment(student_id=user.id, subject_id=subject.id)
     db.add(db_enrollment)
+
+    result = await db.execute(select(models.Chat).filter(models.Chat.subject_id == subject.id))
+    chat = result.scalar_one_or_none()
+
+    if chat:
+        result = await db.execute(
+            select(models.ChatParticipant).filter(
+                models.ChatParticipant.chat_id == chat.id,
+                models.ChatParticipant.user_id == user.id
+            )
+        )
+        if not result.scalar_one_or_none():
+            chat_participant = models.ChatParticipant(chat_id=chat.id, user_id=user.id)
+            db.add(chat_participant)
+
     await db.commit()
 
     return RedirectResponse(url="/", status_code=303)
+
 
 
 @router.get("/my-subjects", response_model=List[schemas.SubjectOut])
@@ -61,13 +79,91 @@ async def get_enrolled_subjects(
 
 
 @router.get("/search_courses")
-async def search_courses(request: Request, query: str, db: AsyncSession = Depends(get_db)):
+async def search_courses(
+    request: Request, 
+    query: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_for_id)
+):
+    teacher_result = await db.execute(
+        select(models.Subject)
+        .filter(models.Subject.teacher_id == current_user.id)
+        .order_by(models.Subject.title)
+    )
+    teacher_courses = teacher_result.scalars().all()
+
+    student_result = await db.execute(
+        select(models.Subject)
+        .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
+        .filter(models.Enrollment.student_id == current_user.id)
+        .order_by(models.Subject.title)
+    )
+    student_courses = student_result.scalars().all()
+
     result = await db.execute(
-        select(models.Subject).filter(models.Subject.title.ilike(f"%{query}%"))
+        select(models.Subject).where(
+            and_(
+                or_(
+                    models.Subject.teacher_id == current_user.id,
+                    models.Subject.id.in_(
+                        select(models.Enrollment.subject_id)
+                        .where(models.Enrollment.student_id == current_user.id)
+                    )
+                ),
+                models.Subject.title.ilike(f"%{query}%")
+            )
+        )
     )
     courses = result.scalars().all()
+    
+    return templates.TemplateResponse(
+        "search_courses.html", 
+        {
+            "request": request,
+            "courses": courses,
+            "query": query,
+            "user": current_user,
+            "teacher_courses": teacher_courses,
+            "student_courses": student_courses
+        }
+    )
 
-    if not courses:
-        raise HTTPException(status_code=404, detail="No courses found")
 
-    return templates.TemplateResponse("search_courses.html", {"request": request, "courses": courses, "query": query})
+@router.get("/course_settings/{subject_id}", name="settings_for_course")
+async def settings_for_course(
+    subject_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user_for_id),
+):
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalars().first()
+
+    if not subject or subject.teacher_id != current_user.id:
+        return RedirectResponse(url="/", status_code=303)
+
+    result = await db.execute(
+        select(models.Chat).filter(models.Chat.subject_id == subject_id)
+    )
+    chat = result.scalar_one_or_none()
+    chat_id = chat.id if chat else None
+
+    return templates.TemplateResponse(
+        "settings_course.html",
+        {
+            "request": request, 
+            "subject": subject, 
+            "user": current_user,
+            "chat_id": chat_id
+        }
+    )
+
+
+@router.post("/meet_link/{subject_id}")
+async def save_meet_link(subject_id: int, meet_link: str = Form(...), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Subject).filter(models.Subject.id == subject_id))
+    subject = result.scalars().first()
+
+    subject.meet_link = meet_link
+    await db.commit()
+    return RedirectResponse(url=f"/subjects/{subject_id}", status_code=303)

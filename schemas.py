@@ -54,19 +54,6 @@ class TaskCreate(TaskBase):
 class TaskOut(TaskBase):
     id: int
     subject_id: int
-    comments: List['CommentOut'] = []
-
-    class Config:
-        from_attributes = True
-
-
-class CommentCreate(BaseModel):
-    content: str
-    task_id: int
-
-
-class CommentOut(CommentCreate):
-    id: int
 
     class Config:
         from_attributes = True

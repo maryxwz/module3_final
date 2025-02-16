@@ -28,12 +28,29 @@ async def index(
 ):
     user = None
     subjects = []
+    teacher_courses = []
+    student_courses = []
     
     if current_user:
         result = await db.execute(select(models.User).filter(models.User.email == current_user))
         user = result.scalar_one_or_none()
         
-        if user: 
+        if user:
+            teacher_result = await db.execute(
+                select(models.Subject)
+                .filter(models.Subject.teacher_id == user.id)
+                .order_by(models.Subject.title)
+            )
+            teacher_courses = teacher_result.scalars().all()
+
+            student_result = await db.execute(
+                select(models.Subject)
+                .join(models.Enrollment, models.Subject.id == models.Enrollment.subject_id)
+                .filter(models.Enrollment.student_id == user.id)
+                .order_by(models.Subject.title)
+            )
+            student_courses = student_result.scalars().all()
+
             result = await db.execute(
                 select(models.Subject).where(
                     (models.Subject.teacher_id == user.id) |
@@ -50,7 +67,9 @@ async def index(
         {
             "request": request,
             "user": user,
-            "subjects": subjects
+            "subjects": subjects,
+            "teacher_courses": teacher_courses,
+            "student_courses": student_courses
         }
     )
 

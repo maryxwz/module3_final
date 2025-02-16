@@ -1,0 +1,154 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat</title>
+  </head>
+  <body class="flex flex-col items-center justify-between h-screen"> -->
+{% extends "base.html" %} {% block content %}
+{% include "subjects_navbar.html" %}
+<div class="max-h-[50vh] flex">
+  <div class="w-full h-[73vh] px-24 flex flex-col">
+    <div
+      id="messages"
+      class="flex-1 w-full overflow-y-auto p-5 bg-white rounded-lg mb-4"
+    ></div>
+
+    <div class="w-full p-5 bg-white rounded-b-lg flex items-center">
+      <input
+        id="messageInput"
+        type="text"
+        placeholder="Type your message..."
+        class="w-full p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        onclick="sendMessage()"
+        class="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none"
+      >
+        Send
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  const path = window.location.pathname;
+  let socket;
+  let chatId = path.split("/").pop();
+  let currentUserId = null;
+  let currentUsername = null;
+
+
+  function connectWebSocket() {
+    socket = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${chatId}`);
+
+    socket.onopen = () => {
+      console.log("Connected to WebSocket");
+    };
+
+    socket.onmessage = function (event) {
+      const messageData = JSON.parse(event.data);
+      console.log("Received message:", messageData);
+      renderMessage(messageData, currentUserId);
+    };
+
+    socket.onerror = function(error) {
+      console.error("WebSocket error:", error);
+    };
+
+    socket.onclose = function() {
+      console.log("WebSocket connection closed");
+    };
+  }
+
+  async function fetchMessages() {
+    try {
+      const response = await fetch(`/chats/${chatId}/messages`);
+      const data = await response.json();
+
+      currentUserId = data.user_id;
+      const messages = data.messages;
+      const messagesContainer = document.getElementById("messages");
+
+      messagesContainer.innerHTML = "";
+
+      messages.forEach((msg) => {
+        renderMessage(msg, currentUserId);
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  }
+
+  function renderMessage(messageData, userId) {
+    const messagesContainer = document.getElementById("messages");
+    const messageElement = document.createElement("div");
+    
+    const isMyMessage = messageData.sender_id === userId;
+
+    messageElement.classList.add(
+        "message",
+        "mb-4",
+        "flex",
+        "items-start",
+        "gap-3",
+        isMyMessage ? "justify-end" : "justify-start"
+    );
+
+    const avatarHtml = messageData.avatar_url 
+        ? `<img src="${messageData.avatar_url}" alt="${messageData.username}" class="w-12 h-12 rounded-full object-cover flex-shrink-0">` 
+        : `<div class="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+             <i class="fas fa-user text-gray-600"></i>
+           </div>`;
+
+    const messageContent = `
+        <div class="${isMyMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'} 
+                    p-3 rounded-lg max-w-lg">
+            <div class="font-semibold text-sm mb-1">${messageData.username}</div>
+            <div>${messageData.content}</div>
+        </div>
+    `;
+
+    messageElement.innerHTML = isMyMessage
+        ? `${messageContent}${avatarHtml}`
+        : `${avatarHtml}${messageContent}`;
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function sendMessage() {
+    const messageInput = document.getElementById("messageInput");
+    const message = messageInput.value.trim();
+
+    if (!message) return;
+
+    const messageData = {
+      content: message,
+      chat_id: chatId,
+      sender_id: currentUserId
+    };
+
+    console.log("Sending message:", messageData);
+    socket.send(JSON.stringify(messageData));
+    messageInput.value = "";
+  }
+
+  document.getElementById("messageInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  });
+
+  window.onload = async function () {
+    await fetchMessages();
+    connectWebSocket();
+  };
+</script>
+<!-- </body>
+</html> -->
+{% endblock %}

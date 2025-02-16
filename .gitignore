@@ -84,6 +84,12 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
+
+.idea
+.idea/vcs.xml
+.idea/misc.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
 # Editor-based Rest Client
 .idea/httpRequests
 
@@ -126,9 +132,12 @@ fabric.properties
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
-__pycache__/
+.idea/**
+*/__pycache__/*
+/uploads
 *.py[cod]
 *$py.class
+
 
 # C extensions
 *.so
@@ -297,3 +306,10 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,database
+
+uploads/*
+!uploads/.gitkeep
+
+# Ignore avatar uploads but keep the directory
+avatars/*
+!avatars/.gitkeep
